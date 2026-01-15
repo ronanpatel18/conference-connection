@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { Loader2, Users, Search, X } from "lucide-react";
 import { createClient } from "@/utils/supabase/client";
@@ -9,6 +10,7 @@ import AttendeeCard from "@/components/AttendeeCard";
 import { cn } from "@/lib/utils";
 
 export default function NetworkPage() {
+  const router = useRouter();
   const [attendees, setAttendees] = useState<Attendee[]>([]);
   const [filteredAttendees, setFilteredAttendees] = useState<Attendee[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -28,6 +30,11 @@ export default function NetworkPage() {
   const loadAttendees = async () => {
     try {
       const supabase = createClient();
+      const { data: authData } = await supabase.auth.getUser();
+      if (!authData.user) {
+        router.push("/login");
+        return;
+      }
       const { data, error } = await supabase
         .from("attendees")
         .select("*")

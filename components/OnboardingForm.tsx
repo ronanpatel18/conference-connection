@@ -12,9 +12,11 @@ export default function OnboardingForm() {
   const [formData, setFormData] = useState({
     name: "",
     email: "",
+    password: "",
     job_title: "",
     company: "",
     linkedin_url: "",
+    about: "",
   });
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
@@ -33,10 +35,47 @@ export default function OnboardingForm() {
       if (!formData.email.trim()) {
         throw new Error("Please enter your email");
       }
+      if (!formData.password.trim()) {
+        throw new Error("Please create a password");
+      }
+
+      setLoadingMessage("Creating your account...");
+
+      // Step 2: Create auth account for login
+      const supabase = createClient();
+      const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
+        email: formData.email,
+        password: formData.password,
+      });
+
+      if (signUpError) {
+        throw new Error(signUpError.message);
+      }
+
+      if (!signUpData.user) {
+        throw new Error("Unable to create account. Please try again.");
+      }
+
+      // Ensure we have an authenticated session (email confirmation may be required)
+      let authUserId = signUpData.session?.user?.id;
+      if (!authUserId) {
+        const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
+          email: formData.email,
+          password: formData.password,
+        });
+
+        if (signInError || !signInData.session?.user?.id) {
+          throw new Error(
+            "Account created. Please check your email to confirm, then log in to finish your profile."
+          );
+        }
+
+        authUserId = signInData.session.user.id;
+      }
 
       setLoadingMessage("AI is scanning the web for you...");
 
-      // Step 2: Call the enrich-profile API
+      // Step 3: Call the enrich-profile API
       const enrichResponse = await fetch("/api/enrich-profile", {
         method: "POST",
         headers: {
@@ -47,6 +86,7 @@ export default function OnboardingForm() {
           job_title: formData.job_title || undefined,
           company: formData.company || undefined,
           linkedin_url: formData.linkedin_url || undefined,
+          about: formData.about || undefined,
         }),
       });
 
@@ -62,20 +102,19 @@ export default function OnboardingForm() {
 
       setLoadingMessage("Saving your profile...");
 
-      // Step 3: Save to Supabase
-      const supabase = createClient();
-
       // Combine summary bullets into a single text
       const aiSummary = enrichData.data.summary.join("\n");
 
       const { data: insertedData, error: supabaseError } = await supabase
         .from("attendees")
         .insert({
+          user_id: authUserId,
           name: formData.name,
           email: formData.email,
           job_title: formData.job_title || null,
           company: formData.company || null,
           linkedin_url: formData.linkedin_url || null,
+          about: formData.about || null,
           ai_summary: aiSummary,
           industry_tags: enrichData.data.industry_tags || [],
         })
@@ -244,6 +283,38 @@ export default function OnboardingForm() {
                   )}
                 />
               </div>
+              {/* Password input */}
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <label
+                    htmlFor="password"
+                    className="block text-sm font-medium text-gray-700"
+                  >
+                    Create Password *
+                  </label>
+                  <span className="text-xs text-gray-500">Min 6 characters</span>
+                </div>
+                <input
+                  id="password"
+                  type="password"
+                  required
+                  value={formData.password}
+                  onChange={(e) =>
+                    setFormData({ ...formData, password: e.target.value })
+                  }
+                  placeholder="••••••••"
+                  minLength={6}
+                  disabled={isLoading}
+                  className={cn(
+                    "w-full px-4 py-3 rounded-xl",
+                    "bg-gray-50 border border-gray-300",
+                    "text-gray-900 placeholder:text-gray-400",
+                    "focus:outline-none focus:ring-2 focus:ring-badger-red focus:border-transparent",
+                    "transition-all duration-200",
+                    "disabled:opacity-50 disabled:cursor-not-allowed"
+                  )}
+                />
+              </div>
               {/* LinkedIn URL input */}
               <div>
                 <label
@@ -270,6 +341,37 @@ export default function OnboardingForm() {
                     "disabled:opacity-50 disabled:cursor-not-allowed"
                   )}
                 />
+              </div>
+              {/* Optional personal context */}
+              <div>
+                <label
+                  htmlFor="about"
+                  className="block text-sm font-medium text-gray-700 mb-2"
+                >
+                  About You (optional)
+                </label>
+                <textarea
+                  id="about"
+                  value={formData.about}
+                  onChange={(e) =>
+                    setFormData({ ...formData, about: e.target.value })
+                  }
+                  placeholder="Share 2-3 sentences about who you are and what you do."
+                  disabled={isLoading}
+                  rows={4}
+                  className={cn(
+                    "w-full px-4 py-3 rounded-xl",
+                    "bg-gray-50 border border-gray-300",
+                    "text-gray-900 placeholder:text-gray-400",
+                    "focus:outline-none focus:ring-2 focus:ring-badger-red focus:border-transparent",
+                    "transition-all duration-200",
+                    "disabled:opacity-50 disabled:cursor-not-allowed",
+                    "resize-none"
+                  )}
+                />
+                <p className="mt-2 text-xs text-gray-500">
+                  This helps AI match your real background and avoid guesses.
+                </p>
               </div>
 
               {/* Error message */}

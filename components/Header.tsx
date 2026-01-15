@@ -1,13 +1,69 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
-import { Menu, X } from "lucide-react";
+import { Menu, X, User, LogOut, Pencil } from "lucide-react";
 import WsbcLogo from "@/components/WsbcLogo";
+import { createClient } from "@/utils/supabase/client";
 
 export default function Header() {
+  const router = useRouter();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [userName, setUserName] = useState<string | null>(null);
+  const [isAuthed, setIsAuthed] = useState(false);
+  const [profileMenuOpen, setProfileMenuOpen] = useState(false);
+  const profileMenuRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    const fetchUser = async () => {
+      const supabase = createClient();
+      const { data } = await supabase.auth.getUser();
+      if (!data.user) {
+        setIsAuthed(false);
+        setUserName(null);
+        return;
+      }
+
+      setIsAuthed(true);
+      const { data: attendee } = await supabase
+        .from("attendees")
+        .select("name")
+        .eq("user_id", data.user.id)
+        .maybeSingle();
+      setUserName(attendee?.name ?? data.user.email ?? null);
+    };
+
+    fetchUser();
+  }, []);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (!profileMenuOpen) return;
+      const target = event.target as Node;
+      if (profileMenuRef.current && !profileMenuRef.current.contains(target)) {
+        setProfileMenuOpen(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [profileMenuOpen]);
+
+  const profileInitial = useMemo(() => {
+    if (!userName) return "U";
+    return userName.trim()[0]?.toUpperCase() ?? "U";
+  }, [userName]);
+
+  const handleLogout = async () => {
+    const supabase = createClient();
+    await supabase.auth.signOut();
+    setIsAuthed(false);
+    setUserName(null);
+    setProfileMenuOpen(false);
+    router.push("/login");
+  };
 
   const navItems = [
     { href: "/network", label: "Attendees" },
@@ -59,6 +115,48 @@ export default function Header() {
                 Register
               </motion.button>
             </Link>
+            {isAuthed ? (
+              <div className="relative" ref={profileMenuRef}>
+                <button
+                  onClick={() => setProfileMenuOpen((prev) => !prev)}
+                  className="flex items-center space-x-2"
+                >
+                  <div className="w-9 h-9 rounded-full bg-badger-red text-white flex items-center justify-center font-semibold">
+                    {profileInitial}
+                  </div>
+                  <span className="text-sm font-medium text-gray-700">Profile</span>
+                </button>
+                {profileMenuOpen && (
+                  <div className="absolute right-0 mt-2 w-48 rounded-xl border border-gray-200 bg-white shadow-lg overflow-hidden">
+                    <Link
+                      href="/profile"
+                      className="flex items-center px-4 py-3 text-sm text-gray-700 hover:bg-gray-50"
+                      onClick={() => setProfileMenuOpen(false)}
+                    >
+                      <Pencil className="w-4 h-4 mr-2" />
+                      Edit Profile
+                    </Link>
+                    <button
+                      onClick={handleLogout}
+                      className="w-full flex items-center px-4 py-3 text-sm text-red-600 hover:bg-red-50"
+                    >
+                      <LogOut className="w-4 h-4 mr-2" />
+                      Log Out
+                    </button>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <Link href="/login">
+                <motion.button
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  className="px-4 py-2 rounded-full border border-gray-300 text-gray-700 font-medium hover:text-badger-red hover:border-badger-red transition-colors"
+                >
+                  Login
+                </motion.button>
+              </Link>
+            )}
           </div>
 
           {/* Mobile Menu Button */}
@@ -111,6 +209,31 @@ export default function Header() {
                   Register
                 </button>
               </Link>
+              {isAuthed ? (
+                <div className="space-y-2">
+                  <Link
+                    href="/profile"
+                    className="w-full flex items-center justify-center px-6 py-2 rounded-full border border-gray-300 text-gray-700 font-semibold"
+                    onClick={() => setMobileMenuOpen(false)}
+                  >
+                    <User className="w-4 h-4 mr-2" />
+                    Edit Profile
+                  </Link>
+                  <button
+                    onClick={handleLogout}
+                    className="w-full flex items-center justify-center px-6 py-2 rounded-full border border-red-200 text-red-600 font-semibold"
+                  >
+                    <LogOut className="w-4 h-4 mr-2" />
+                    Log Out
+                  </button>
+                </div>
+              ) : (
+                <Link href="/login" className="w-full">
+                  <button className="w-full px-6 py-2 rounded-full border border-gray-300 text-gray-700 font-semibold hover:text-badger-red hover:border-badger-red transition-colors">
+                    Login
+                  </button>
+                </Link>
+              )}
             </div>
           </motion.div>
         )}

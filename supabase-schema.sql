@@ -7,11 +7,13 @@
 -- Create attendees table
 CREATE TABLE IF NOT EXISTS public.attendees (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
   name TEXT NOT NULL,
   email TEXT NOT NULL UNIQUE,
   linkedin_url TEXT,
   job_title TEXT,
   company TEXT,
+  about TEXT,
   ai_summary TEXT,
   industry_tags TEXT[] DEFAULT '{}',
   created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
@@ -24,6 +26,12 @@ CREATE INDEX IF NOT EXISTS attendees_email_idx ON public.attendees(email);
 -- Create index on created_at for sorting
 CREATE INDEX IF NOT EXISTS attendees_created_at_idx ON public.attendees(created_at DESC);
 
+-- Create index on user_id for profile lookups
+CREATE INDEX IF NOT EXISTS attendees_user_id_idx ON public.attendees(user_id);
+
+-- Ensure each auth user has a single attendee profile
+CREATE UNIQUE INDEX IF NOT EXISTS attendees_user_id_unique ON public.attendees(user_id);
+
 -- Create index on industry_tags for filtering
 CREATE INDEX IF NOT EXISTS attendees_industry_tags_idx ON public.attendees USING GIN(industry_tags);
 
@@ -34,17 +42,17 @@ CREATE INDEX IF NOT EXISTS attendees_industry_tags_idx ON public.attendees USING
 -- Enable Row Level Security
 ALTER TABLE public.attendees ENABLE ROW LEVEL SECURITY;
 
--- Policy 1: Allow anyone to read all attendee profiles (public read)
-CREATE POLICY "Allow public read access"
+-- Policy 1: Allow authenticated users to read all attendee profiles
+CREATE POLICY "Allow authenticated read access"
   ON public.attendees
   FOR SELECT
-  USING (true);
+  USING (auth.role() = 'authenticated');
 
--- Policy 2: Allow anyone to insert new attendees (for MVP - open registration)
-CREATE POLICY "Allow public insert access"
+-- Policy 2: Allow authenticated users to insert their own attendee profile
+CREATE POLICY "Allow authenticated insert access"
   ON public.attendees
   FOR INSERT
-  WITH CHECK (true);
+  WITH CHECK (auth.uid() = user_id);
 
 -- Policy 3: Allow users to update their own records
 -- For MVP, we'll allow updates based on email matching
@@ -52,8 +60,8 @@ CREATE POLICY "Allow public insert access"
 CREATE POLICY "Allow users to update own record"
   ON public.attendees
   FOR UPDATE
-  USING (true)
-  WITH CHECK (true);
+  USING (auth.uid() = user_id)
+  WITH CHECK (auth.uid() = user_id);
 
 -- =============================================
 -- HELPER FUNCTION: Update updated_at timestamp
@@ -78,6 +86,18 @@ CREATE TRIGGER set_updated_at
 -- =============================================
 -- OPTIONAL: Sample data for testing
 -- =============================================
+
+-- =============================================
+-- MIGRATION: Add about column to existing table
+-- =============================================
+-- Run this if your attendees table already exists and you need to add the new field.
+-- ALTER TABLE public.attendees ADD COLUMN IF NOT EXISTS about TEXT;
+
+-- MIGRATION: Add user_id column + index for existing table
+-- =============================================
+-- ALTER TABLE public.attendees ADD COLUMN IF NOT EXISTS user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE;
+-- CREATE INDEX IF NOT EXISTS attendees_user_id_idx ON public.attendees(user_id);
+-- CREATE UNIQUE INDEX IF NOT EXISTS attendees_user_id_unique ON public.attendees(user_id);
 
 -- Uncomment to insert sample data
 -- INSERT INTO public.attendees (name, email, linkedin_url, job_title, company, industry_tags) VALUES

@@ -6,11 +6,13 @@ export interface Database {
       attendees: {
         Row: {
           id: string
+          user_id: string | null
           name: string
           email: string
           linkedin_url: string | null
           job_title: string | null
           company: string | null
+          about: string | null
           ai_summary: string | null
           industry_tags: string[]
           created_at: string
@@ -18,11 +20,13 @@ export interface Database {
         }
         Insert: {
           id?: string
+          user_id?: string | null
           name: string
           email: string
           linkedin_url?: string | null
           job_title?: string | null
           company?: string | null
+          about?: string | null
           ai_summary?: string | null
           industry_tags?: string[]
           created_at?: string
@@ -30,11 +34,13 @@ export interface Database {
         }
         Update: {
           id?: string
+          user_id?: string | null
           name?: string
           email?: string
           linkedin_url?: string | null
           job_title?: string | null
           company?: string | null
+          about?: string | null
           ai_summary?: string | null
           industry_tags?: string[]
           created_at?: string

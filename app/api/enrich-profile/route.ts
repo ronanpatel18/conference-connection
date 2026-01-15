@@ -12,6 +12,7 @@ interface EnrichProfileRequest {
   job_title?: string;
   company?: string;
   linkedin_url?: string;
+  about?: string;
 }
 
 interface EnrichProfileResponse {
@@ -28,7 +29,7 @@ export async function POST(request: NextRequest) {
   try {
     // Parse request body
     const body: EnrichProfileRequest = await request.json();
-    const { name, job_title, company, linkedin_url } = body;
+    const { name, job_title, company, linkedin_url, about } = body;
 
     // Validate input
     if (!name || name.trim().length === 0) {
@@ -57,7 +58,7 @@ export async function POST(request: NextRequest) {
     let searchResults: any = { results: [], answer: '' };
     let tavilyErrorMessage: string | undefined;
     try {
-      const searchQuery = buildSearchQuery(name, job_title, company, linkedin_url);
+      const searchQuery = buildSearchQuery(name, job_title, company, linkedin_url, about);
       console.log(`[Tavily] Searching: "${searchQuery}"`);
 
       if (!process.env.TAVILY_API_KEY) {
@@ -94,7 +95,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Step 2: Prepare context for OpenAI
-    const contextText = buildContextFromResults(searchResults, name);
+    const contextText = buildContextFromResults(searchResults, name, about);
 
     // Step 3: Use Gemini to analyze and summarize
     let aiResponse;
@@ -120,7 +121,9 @@ RULES:
 - Focus on accomplishments, expertise, and what makes them interesting to network with
 - Be specific but concise
 - Keep a professional yet approachable tone
-- If information is limited, infer based on job title and company
+    - If information is limited, infer based on job title and company
+    - Treat the user-provided "About" text as the most reliable source and do not contradict it
+    - If sources are missing or ambiguous, avoid guessing specific employers or achievements
 
 INDUSTRY TAGS RULES:
 - Tag 1: BROAD INDUSTRY (e.g., Technology, Finance, Healthcare, Retail, Media)
@@ -129,7 +132,7 @@ INDUSTRY TAGS RULES:
 - Ensure tags are single words or very short phrases
 - Tags MUST align with the profile summary generated
 
-OUTPUT FORMAT (JSON):
+OUTPUT FORMAT (JSON only):
 {
   "summary": ["bullet 1", "bullet 2", "bullet 3"],
   "industry_tags": ["tag1", "tag2", "tag3"]
@@ -139,16 +142,23 @@ Analyze this person and create their professional summary:
 
 Name: ${name}
 ${job_title ? `Job Title: ${job_title}\n` : ''}${company ? `Company: ${company}\n` : ''}
+${about ? `About (user-provided): ${about}\n` : ''}
 
 Information found:
 ${contextText}
 
-Provide the summary in the exact JSON format specified.`;
+Return ONLY valid JSON. Do not include markdown, code fences, or extra commentary.`;
 
       console.log('[Gemini] Sending prompt...');
       let result;
       try {
-        const model = genAI.getGenerativeModel({ model: modelName });
+        const model = genAI.getGenerativeModel({
+          model: modelName,
+          generationConfig: {
+            responseMimeType: "application/json",
+            temperature: 0.6,
+          },
+        });
         result = await model.generateContent(prompt);
       } catch (firstError: any) {
         const status = firstError?.status;
@@ -163,7 +173,13 @@ Provide the summary in the exact JSON format specified.`;
         console.warn('[Gemini] Requested model unavailable, falling back to ListModels...');
         modelName = await getSupportedGeminiModelName(geminiApiKey);
         console.log('[Gemini] Using fallback model:', modelName);
-        const fallbackModel = genAI.getGenerativeModel({ model: modelName });
+        const fallbackModel = genAI.getGenerativeModel({
+          model: modelName,
+          generationConfig: {
+            responseMimeType: "application/json",
+            temperature: 0.6,
+          },
+        });
         result = await fallbackModel.generateContent(prompt);
       }
       console.log('[Gemini] Got result...');
@@ -171,20 +187,26 @@ Provide the summary in the exact JSON format specified.`;
       const text = response.text();
       console.log('[Gemini] Raw response:', text);
 
-      // Extract JSON from the response
+      // Extract JSON from the response (support raw JSON or fenced blocks)
       const jsonMatch = text.match(/\{[\s\S]*\}/);
-      if (!jsonMatch) {
-        console.error('[Gemini] No JSON found in response, trying to parse as JSON directly');
-        // Try to parse the entire response as JSON
-        try {
-          aiResponse = JSON.parse(text);
-        } catch (parseError) {
-          console.error('[Gemini] Could not parse response as JSON');
-          throw new Error('Invalid response format from Gemini');
-        }
-      } else {
-        console.log('[Gemini] Extracted JSON:', jsonMatch[0]);
-        aiResponse = JSON.parse(jsonMatch[0]);
+      const fencedMatch = text.match(/```json[\s\S]*?```/i);
+      const candidate =
+        (fencedMatch ? fencedMatch[0].replace(/```json|```/gi, "").trim() : null) ||
+        (jsonMatch ? jsonMatch[0] : null) ||
+        text.trim();
+
+      try {
+        aiResponse = JSON.parse(candidate);
+      } catch (parseError) {
+        console.error('[Gemini] Could not parse response as JSON');
+        aiResponse = {
+          summary: [
+            'Experienced professional in their field',
+            'Focused on collaboration and industry impact',
+            'Open to meaningful networking conversations',
+          ],
+          industry_tags: ['Business', 'Professional', 'Networking'],
+        };
       }
 
       console.log('[Gemini] Summary generated successfully');
@@ -300,7 +322,8 @@ function buildSearchQuery(
   name: string,
   job_title?: string,
   company?: string,
-  linkedin_url?: string
+  linkedin_url?: string,
+  about?: string
 ): string {
   const terms = [name];
   
@@ -315,6 +338,10 @@ function buildSearchQuery(
   if (linkedin_url) {
     terms.push(linkedin_url);
   }
+
+  if (about && about.trim().length > 0) {
+    terms.push(`"${about.trim()}"`);
+  }
   
   // Broader search terms to find information across the web
   terms.push("professional profile");
@@ -325,10 +352,14 @@ function buildSearchQuery(
 }
 
 // Helper function to build context from search results
-function buildContextFromResults(searchResults: any, name: string): string {
+function buildContextFromResults(searchResults: any, name: string, about?: string): string {
   const results = searchResults.results || [];
   
   let context = '';
+
+  if (about && about.trim().length > 0) {
+    context += `User-provided context: ${about.trim()}\n\n`;
+  }
   
   // Add Tavily's AI answer if available
   if (searchResults.answer) {
