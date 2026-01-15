@@ -1,15 +1,18 @@
 "use client";
 
 import Link from "next/link";
-import { Github, Linkedin, Twitter, Mail } from "lucide-react";
+import { Instagram, Linkedin } from "lucide-react";
 import { motion } from "framer-motion";
+import WsbcLogo from "@/components/WsbcLogo";
 
 export default function Footer() {
   const socialLinks = [
-    { icon: Github, href: "#", label: "GitHub" },
-    { icon: Linkedin, href: "#", label: "LinkedIn" },
-    { icon: Twitter, href: "#", label: "Twitter" },
-    { icon: Mail, href: "#", label: "Email" },
+    {
+      icon: Linkedin,
+      href: "https://www.linkedin.com/company/wisconsin-sports-business-conference",
+      label: "LinkedIn",
+    },
+    { icon: Instagram, href: "https://www.instagram.com/wisconsinsbc/", label: "Instagram" },
   ];
 
   const footerLinks = [
@@ -24,9 +27,12 @@ export default function Footer() {
     {
       title: "Connect",
       links: [
-        { label: "LinkedIn", href: "#" },
-        { label: "Twitter", href: "#" },
-        { label: "Contact", href: "#contact" },
+        {
+          label: "LinkedIn",
+          href: "https://www.linkedin.com/company/wisconsin-sports-business-conference",
+        },
+        { label: "Instagram", href: "https://www.instagram.com/wisconsinsbc/" },
+        { label: "Contact", href: "https://www.wisconsinsbc.com/contact" },
       ],
     },
   ];
@@ -38,6 +44,7 @@ export default function Footer() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-8 md:gap-12 mb-8">
           {/* Brand Section */}
           <div className="lg:col-span-2">
+            <WsbcLogo className="h-12 w-12 mb-4" size={48} />
             <h3 className="text-2xl font-bold text-badger-red mb-4">
               Wisconsin Sports Business Conference
             </h3>
@@ -69,12 +76,23 @@ export default function Footer() {
               <ul className="space-y-3">
                 {section.links.map((link) => (
                   <li key={link.label}>
-                    <Link
-                      href={link.href}
-                      className="text-gray-600 hover:text-badger-red transition-colors duration-200 text-sm"
-                    >
-                      {link.label}
-                    </Link>
+                    {link.href.startsWith("http") ? (
+                      <a
+                        href={link.href}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-gray-600 hover:text-badger-red transition-colors duration-200 text-sm"
+                      >
+                        {link.label}
+                      </a>
+                    ) : (
+                      <Link
+                        href={link.href}
+                        className="text-gray-600 hover:text-badger-red transition-colors duration-200 text-sm"
+                      >
+                        {link.label}
+                      </Link>
+                    )}
                   </li>
                 ))}
               </ul>
@@ -88,20 +106,6 @@ export default function Footer() {
             <p className="text-gray-600 text-sm text-center md:text-left">
               © {new Date().getFullYear()} Wisconsin Sports Business Conference. All rights reserved.
             </p>
-            <div className="flex space-x-6 text-sm">
-              <Link
-                href="#privacy"
-                className="text-gray-600 hover:text-badger-red transition-colors duration-200"
-              >
-                Privacy Policy
-              </Link>
-              <Link
-                href="#terms"
-                className="text-gray-600 hover:text-badger-red transition-colors duration-200"
-              >
-                Terms of Service
-              </Link>
-            </div>
           </div>
         </div>
       </div>
