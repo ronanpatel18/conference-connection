@@ -15,6 +15,8 @@ export default function ProfilePage() {
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [aiSummaryText, setAiSummaryText] = useState("");
+  const [isDeleting, setIsDeleting] = useState(false);
 
   useEffect(() => {
     const loadProfile = async () => {
@@ -35,6 +37,12 @@ export default function ProfilePage() {
         setError(error.message);
       } else {
         setAttendee(data);
+        const bullets = (data.ai_summary || "")
+          .split("\n")
+          .map((line) => line.trim())
+          .filter(Boolean)
+          .map((line) => (line.startsWith("•") ? line : `• ${line}`));
+        setAiSummaryText(bullets.join("\n"));
       }
       setIsLoading(false);
     };
@@ -68,6 +76,12 @@ export default function ProfilePage() {
         }
       }
 
+      const normalizedSummary = aiSummaryText
+        .split("\n")
+        .map((line) => line.replace(/^•\s*/, "").trim())
+        .filter(Boolean)
+        .join("\n");
+
       const { error } = await supabase
         .from("attendees")
         .update({
@@ -77,7 +91,7 @@ export default function ProfilePage() {
           company: attendee.company,
           linkedin_url: attendee.linkedin_url,
           about: attendee.about,
-          ai_summary: attendee.ai_summary,
+          ai_summary: normalizedSummary,
           industry_tags: attendee.industry_tags,
         })
         .eq("user_id", authData.user.id);
@@ -91,6 +105,33 @@ export default function ProfilePage() {
       setError(err instanceof Error ? err.message : "Failed to save profile");
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const handleDeleteProfile = async () => {
+    const confirmed = window.confirm(
+      "This will permanently delete your attendee profile. This cannot be undone. Continue?"
+    );
+    if (!confirmed) return;
+
+    setError("");
+    setSuccess("");
+    setIsDeleting(true);
+
+    try {
+      const response = await fetch("/api/delete-account", {
+        method: "POST",
+      });
+
+      const data = await response.json();
+      if (!response.ok || !data.success) {
+        throw new Error(data.error || "Failed to delete profile");
+      }
+
+      router.push("/login");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to delete profile");
+      setIsDeleting(false);
     }
   };
 
@@ -230,9 +271,26 @@ export default function ProfilePage() {
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">AI Summary</label>
               <textarea
-                value={attendee.ai_summary ?? ""}
-                onChange={(e) => setAttendee({ ...attendee, ai_summary: e.target.value })}
-                rows={5}
+                value={aiSummaryText}
+                onChange={(e) => setAiSummaryText(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key !== "Enter") return;
+                  e.preventDefault();
+                  const textarea = e.currentTarget;
+                  const { selectionStart, selectionEnd } = textarea;
+                  const prefix = aiSummaryText.length === 0 ? "• " : "\n• ";
+                  const nextValue =
+                    aiSummaryText.slice(0, selectionStart) +
+                    prefix +
+                    aiSummaryText.slice(selectionEnd);
+                  setAiSummaryText(nextValue);
+                  requestAnimationFrame(() => {
+                    const nextPos = selectionStart + prefix.length;
+                    textarea.selectionStart = nextPos;
+                    textarea.selectionEnd = nextPos;
+                  });
+                }}
+                rows={6}
                 className={cn(
                   "w-full px-4 py-3 rounded-xl",
                   "bg-gray-50 border border-gray-300",
@@ -242,6 +300,7 @@ export default function ProfilePage() {
                   "resize-none"
                 )}
               />
+              <p className="mt-2 text-xs text-gray-500">Use one bullet per line. Bullets are shown on the attendee card.</p>
             </div>
 
             <div>
@@ -289,6 +348,28 @@ export default function ProfilePage() {
               )}
             </button>
           </form>
+
+          <div className="mt-10 border-t border-gray-200 pt-8">
+            <h2 className="text-lg font-semibold text-gray-900 mb-2">Delete profile</h2>
+            <p className="text-sm text-gray-600 mb-4">
+              This permanently removes your attendee profile from the network.
+            </p>
+            <button
+              type="button"
+              onClick={handleDeleteProfile}
+              disabled={isDeleting}
+              className="inline-flex items-center px-5 py-2.5 rounded-full border border-red-200 text-red-600 font-semibold hover:bg-red-50 transition-all duration-200"
+            >
+              {isDeleting ? (
+                <span className="inline-flex items-center">
+                  <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                  Deleting...
+                </span>
+              ) : (
+                "Delete Profile"
+              )}
+            </button>
+          </div>
         </motion.div>
       </div>
     </main>

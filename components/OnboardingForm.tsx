@@ -56,22 +56,19 @@ export default function OnboardingForm() {
         throw new Error("Unable to create account. Please try again.");
       }
 
-      // Ensure we have an authenticated session (email confirmation may be required)
-      let authUserId = signUpData.session?.user?.id;
-      if (!authUserId) {
-        const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
-          email: formData.email,
-          password: formData.password,
-        });
+      // Force sign-in to ensure a fresh authenticated session
+      const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
+        email: formData.email,
+        password: formData.password,
+      });
 
-        if (signInError || !signInData.session?.user?.id) {
-          throw new Error(
-            "Account created. Please check your email to confirm, then log in to finish your profile."
-          );
-        }
-
-        authUserId = signInData.session.user.id;
+      if (signInError || !signInData.session?.user?.id) {
+        throw new Error(
+          "Account created. Please check your email to confirm, then log in to finish your profile."
+        );
       }
+
+      const authUserId = signInData.session.user.id;
 
       setLoadingMessage("AI is scanning the web for you...");
 
