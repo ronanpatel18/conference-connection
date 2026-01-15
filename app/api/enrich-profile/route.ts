@@ -201,15 +201,23 @@ Return ONLY valid JSON. Do not include markdown, code fences, or extra commentar
       try {
         aiResponse = JSON.parse(candidate);
       } catch {
-        console.error('[Gemini] Could not parse response as JSON');
-        aiResponse = {
-          summary: [
-            'Experienced professional in their field',
-            'Focused on collaboration and industry impact',
-            'Open to meaningful networking conversations',
-          ],
-          industry_tags: ['Business', 'Professional', 'Networking'],
-        };
+        const sanitized = candidate
+          .replace(/[\u201C\u201D]/g, '"')
+          .replace(/,\s*}/g, '}')
+          .replace(/,\s*]/g, ']');
+        try {
+          aiResponse = JSON.parse(sanitized);
+        } catch {
+          console.warn('[Gemini] Could not parse response as JSON');
+          aiResponse = {
+            summary: [
+              'Experienced professional in their field',
+              'Focused on collaboration and industry impact',
+              'Open to meaningful networking conversations',
+            ],
+            industry_tags: ['Business', 'Professional', 'Networking'],
+          };
+        }
       }
 
       console.log('[Gemini] Summary generated successfully');
