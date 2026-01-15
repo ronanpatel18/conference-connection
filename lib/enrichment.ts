@@ -104,7 +104,17 @@ OUTPUT FORMAT (JSON):
 /**
  * Build context string from Tavily search results
  */
-export function buildContextFromSearchResults(searchResults: any): string {
+interface TavilySearchResult {
+  title?: string;
+  content?: string;
+}
+
+interface TavilyResponse {
+  results?: TavilySearchResult[];
+  answer?: string;
+}
+
+export function buildContextFromSearchResults(searchResults: TavilyResponse): string {
   const results = searchResults.results || [];
   let context = '';
 
@@ -112,7 +122,7 @@ export function buildContextFromSearchResults(searchResults: any): string {
     context += `AI Summary: ${searchResults.answer}\n\n`;
   }
 
-  results.slice(0, 3).forEach((result: any, index: number) => {
+  results.slice(0, 3).forEach((result: TavilySearchResult, index: number) => {
     context += `Source ${index + 1}: ${result.title || 'N/A'}\n`;
     if (result.content) {
       context += `${result.content.substring(0, 300)}...\n\n`;

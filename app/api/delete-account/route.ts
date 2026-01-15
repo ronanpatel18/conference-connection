@@ -4,7 +4,7 @@ import { createClient as createServerClient } from "@/utils/supabase/server";
 
 export const runtime = "nodejs";
 
-export async function POST(_request: NextRequest) {
+export async function POST() {
   try {
     const supabase = await createServerClient();
     const {

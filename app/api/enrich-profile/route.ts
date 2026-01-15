@@ -15,14 +15,14 @@ interface EnrichProfileRequest {
   about?: string;
 }
 
-interface EnrichProfileResponse {
-  success: boolean;
-  data?: {
-    summary: string[];
-    industry_tags: string[];
-    sources_found: number;
-  };
-  error?: string;
+interface TavilySearchResult {
+  title?: string;
+  content?: string;
+}
+
+interface TavilyResponse {
+  results?: TavilySearchResult[];
+  answer?: string;
 }
 
 export async function POST(request: NextRequest) {
@@ -55,7 +55,7 @@ export async function POST(request: NextRequest) {
       process.env.GEMINI_MODEL || process.env.DEFAULT_GEMINI_MODEL || 'gemini-3-flash-preview';
 
     // Step 1: Search the web using Tavily API
-    let searchResults: any = { results: [], answer: '' };
+    let searchResults: TavilyResponse = { results: [], answer: '' };
     let tavilyErrorMessage: string | undefined;
     try {
       const searchQuery = buildSearchQuery(name, job_title, company, linkedin_url, about);
@@ -160,8 +160,11 @@ Return ONLY valid JSON. Do not include markdown, code fences, or extra commentar
           },
         });
         result = await model.generateContent(prompt);
-      } catch (firstError: any) {
-        const status = firstError?.status;
+      } catch (firstError: unknown) {
+        const status =
+          typeof firstError === 'object' && firstError && 'status' in firstError
+            ? (firstError as { status?: number }).status
+            : undefined;
         const message = firstError instanceof Error ? firstError.message : String(firstError);
         const isModelIssue =
           status === 404 || /not found|not supported for generateContent/i.test(message);
@@ -197,7 +200,7 @@ Return ONLY valid JSON. Do not include markdown, code fences, or extra commentar
 
       try {
         aiResponse = JSON.parse(candidate);
-      } catch (parseError) {
+      } catch {
         console.error('[Gemini] Could not parse response as JSON');
         aiResponse = {
           summary: [
@@ -352,7 +355,7 @@ function buildSearchQuery(
 }
 
 // Helper function to build context from search results
-function buildContextFromResults(searchResults: any, name: string, about?: string): string {
+function buildContextFromResults(searchResults: TavilyResponse, name: string, about?: string): string {
   const results = searchResults.results || [];
   
   let context = '';
@@ -367,7 +370,7 @@ function buildContextFromResults(searchResults: any, name: string, about?: strin
   }
   
   // Add top results
-  results.slice(0, 3).forEach((result: any, index: number) => {
+  results.slice(0, 3).forEach((result: TavilySearchResult, index: number) => {
     context += `Source ${index + 1}:\nTitle: ${result.title || 'N/A'}\n`;
     if (result.content) {
       context += `Content: ${result.content.substring(0, 300)}...\n`;

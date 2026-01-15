@@ -45,7 +45,7 @@ export default function HomePage() {
               className="text-gray-600 text-lg md:text-xl max-w-3xl mx-auto mb-10"
             >
               Connect with sports business professionals, industry leaders, and innovators. 
-              Explore career opportunities and expand your network in Wisconsin's sports industry.
+              Explore career opportunities and expand your network in Wisconsin&apos;s sports industry.
             </motion.p>
 
             {/* Conference Info Cards */}

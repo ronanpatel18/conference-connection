@@ -102,7 +102,7 @@ export default function OnboardingForm() {
       // Combine summary bullets into a single text
       const aiSummary = enrichData.data.summary.join("\n");
 
-      const { data: insertedData, error: supabaseError } = await supabase
+      const { error: supabaseError } = await supabase
         .from("attendees")
         .insert({
           user_id: authUserId,

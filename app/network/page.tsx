@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { Loader2, Users, Search, X } from "lucide-react";
@@ -19,15 +19,7 @@ export default function NetworkPage() {
   const [selectedIndustry, setSelectedIndustry] = useState<string | null>(null);
   const [allIndustries, setAllIndustries] = useState<string[]>([]);
 
-  useEffect(() => {
-    loadAttendees();
-  }, []);
-
-  useEffect(() => {
-    filterAttendees();
-  }, [attendees, searchQuery, selectedIndustry]);
-
-  const loadAttendees = async () => {
+  const loadAttendees = useCallback(async () => {
     try {
       const supabase = createClient();
       const { data: authData } = await supabase.auth.getUser();
@@ -56,9 +48,9 @@ export default function NetworkPage() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [router]);
 
-  const filterAttendees = () => {
+  const filterAttendees = useCallback(() => {
     let filtered = [...attendees];
 
     // Filter by search query (name, company, job title)
@@ -74,13 +66,19 @@ export default function NetworkPage() {
 
     // Filter by selected industry
     if (selectedIndustry) {
-      filtered = filtered.filter((a) =>
-        a.industry_tags?.includes(selectedIndustry)
-      );
+      filtered = filtered.filter((a) => a.industry_tags?.includes(selectedIndustry));
     }
 
     setFilteredAttendees(filtered);
-  };
+  }, [attendees, searchQuery, selectedIndustry]);
+
+  useEffect(() => {
+    loadAttendees();
+  }, [loadAttendees]);
+
+  useEffect(() => {
+    filterAttendees();
+  }, [filterAttendees]);
 
   if (isLoading) {
     return (
