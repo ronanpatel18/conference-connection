@@ -39,9 +39,9 @@ export default function ProfilePage() {
         setAttendee(data);
         const bullets = (data.ai_summary || "")
           .split("\n")
-          .map((line) => line.trim())
+          .map((line: string) => line.trim())
           .filter(Boolean)
-          .map((line) => (line.startsWith("•") ? line : `• ${line}`));
+          .map((line: string) => (line.startsWith("•") ? line : `• ${line}`));
         setAiSummaryText(bullets.join("\n"));
       }
       setIsLoading(false);
