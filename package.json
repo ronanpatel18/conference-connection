@@ -15,7 +15,7 @@
     "clsx": "latest",
     "framer-motion": "latest",
     "lucide-react": "latest",
-    "next": "15.2.0",
+    "next": "15.2.8",
     "openai": "^4.73.0",
     "react": "^18",
     "react-dom": "^18",
