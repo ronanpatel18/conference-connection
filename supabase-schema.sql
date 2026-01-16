@@ -84,6 +84,28 @@ CREATE TRIGGER set_updated_at
   EXECUTE FUNCTION public.handle_updated_at();
 
 -- =============================================
+-- HELPER FUNCTION: Delete auth user when attendee is deleted
+-- =============================================
+
+-- WARNING: This will permanently remove the auth account when a profile row is deleted.
+-- Requires the function to run as SECURITY DEFINER so it can delete from auth.users.
+CREATE OR REPLACE FUNCTION public.delete_auth_user_for_attendee()
+RETURNS TRIGGER AS $$
+BEGIN
+  IF OLD.user_id IS NOT NULL THEN
+    DELETE FROM auth.users WHERE id = OLD.user_id;
+  END IF;
+  RETURN OLD;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, auth;
+
+DROP TRIGGER IF EXISTS delete_auth_user_on_attendee_delete ON public.attendees;
+CREATE TRIGGER delete_auth_user_on_attendee_delete
+  AFTER DELETE ON public.attendees
+  FOR EACH ROW
+  EXECUTE FUNCTION public.delete_auth_user_for_attendee();
+
+-- =============================================
 -- OPTIONAL: Sample data for testing
 -- =============================================
 
@@ -98,6 +120,23 @@ CREATE TRIGGER set_updated_at
 -- ALTER TABLE public.attendees ADD COLUMN IF NOT EXISTS user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE;
 -- CREATE INDEX IF NOT EXISTS attendees_user_id_idx ON public.attendees(user_id);
 -- CREATE UNIQUE INDEX IF NOT EXISTS attendees_user_id_unique ON public.attendees(user_id);
+
+-- MIGRATION: Delete auth users when attendee row is deleted
+-- =============================================
+-- CREATE OR REPLACE FUNCTION public.delete_auth_user_for_attendee()
+-- RETURNS TRIGGER AS $$
+-- BEGIN
+--   IF OLD.user_id IS NOT NULL THEN
+--     DELETE FROM auth.users WHERE id = OLD.user_id;
+--   END IF;
+--   RETURN OLD;
+-- END;
+-- $$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, auth;
+-- DROP TRIGGER IF EXISTS delete_auth_user_on_attendee_delete ON public.attendees;
+-- CREATE TRIGGER delete_auth_user_on_attendee_delete
+--   AFTER DELETE ON public.attendees
+--   FOR EACH ROW
+--   EXECUTE FUNCTION public.delete_auth_user_for_attendee();
 
 -- Uncomment to insert sample data
 -- INSERT INTO public.attendees (name, email, linkedin_url, job_title, company, industry_tags) VALUES

@@ -43,17 +43,38 @@ export default function OnboardingForm() {
 
       // Step 2: Create auth account for login
       const supabase = createClient();
-      const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
+      const { error: signUpError } = await supabase.auth.signUp({
         email: formData.email,
         password: formData.password,
       });
 
       if (signUpError) {
-        throw new Error(signUpError.message);
-      }
+        const isAlreadyRegistered = /already registered|user already registered/i.test(
+          signUpError.message
+        );
+        if (!isAlreadyRegistered) {
+          throw new Error(signUpError.message);
+        }
 
-      if (!signUpData.user) {
-        throw new Error("Unable to create account. Please try again.");
+        const cleanupResponse = await fetch("/api/cleanup-orphan-auth", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email: formData.email }),
+        });
+        const cleanupData = await cleanupResponse.json();
+
+        if (!cleanupResponse.ok || !cleanupData?.deleted) {
+          throw new Error("Email already registered. Please log in or reset your password.");
+        }
+
+        const { error: retryError } = await supabase.auth.signUp({
+          email: formData.email,
+          password: formData.password,
+        });
+
+        if (retryError) {
+          throw new Error(retryError.message);
+        }
       }
 
       // Force sign-in to ensure a fresh authenticated session
@@ -64,7 +85,7 @@ export default function OnboardingForm() {
 
       if (signInError || !signInData.session?.user?.id) {
         throw new Error(
-          "Account created. Please check your email to confirm, then log in to finish your profile."
+          "Email already registered. Please log in or reset your password to continue."
         );
       }
 
@@ -104,7 +125,7 @@ export default function OnboardingForm() {
 
       const { error: supabaseError } = await supabase
         .from("attendees")
-        .insert({
+        .upsert({
           user_id: authUserId,
           name: formData.name,
           email: formData.email,
@@ -114,7 +135,7 @@ export default function OnboardingForm() {
           about: formData.about || null,
           ai_summary: aiSummary,
           industry_tags: enrichData.data.industry_tags || [],
-        })
+        }, { onConflict: "user_id" })
         .select()
         .single();
 
