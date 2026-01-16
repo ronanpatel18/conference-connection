@@ -16,10 +16,7 @@ function isEmailAllowed(email?: string | null) {
   return normalized.includes(email.toLowerCase());
 }
 
-export async function PATCH(
-  request: Request,
-  { params }: { params: { id: string } }
-) {
+export async function PATCH(request: Request) {
   const supabase = await createServerClient();
   const {
     data: { user },
@@ -40,6 +37,12 @@ export async function PATCH(
   }
 
   const body = (await request.json()) as AttendeeUpdate;
+  const url = new URL(request.url);
+  const id = url.pathname.split("/").pop();
+
+  if (!id) {
+    return NextResponse.json({ success: false, error: "Missing attendee id" }, { status: 400 });
+  }
   const admin = createAdminClient(url, serviceRoleKey, {
     auth: { persistSession: false, autoRefreshToken: false },
   });
@@ -47,7 +50,7 @@ export async function PATCH(
   const { data, error } = await admin
     .from("attendees")
     .update(body)
-    .eq("id", params.id)
+    .eq("id", id)
     .select()
     .single();
 
