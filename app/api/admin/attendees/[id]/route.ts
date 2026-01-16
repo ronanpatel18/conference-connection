@@ -26,10 +26,10 @@ export async function PATCH(request: Request) {
     return NextResponse.json({ success: false, error: "Forbidden" }, { status: 403 });
   }
 
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
-  if (!url || !serviceRoleKey) {
+  if (!supabaseUrl || !serviceRoleKey) {
     return NextResponse.json(
       { success: false, error: "Missing SUPABASE_SERVICE_ROLE_KEY server env var" },
       { status: 500 }
@@ -37,13 +37,13 @@ export async function PATCH(request: Request) {
   }
 
   const body = (await request.json()) as AttendeeUpdate;
-  const url = new URL(request.url);
-  const id = url.pathname.split("/").pop();
+  const requestUrl = new URL(request.url);
+  const id = requestUrl.pathname.split("/").pop();
 
   if (!id) {
     return NextResponse.json({ success: false, error: "Missing attendee id" }, { status: 400 });
   }
-  const admin = createAdminClient(url, serviceRoleKey, {
+  const admin = createAdminClient(supabaseUrl, serviceRoleKey, {
     auth: { persistSession: false, autoRefreshToken: false },
   });
 
