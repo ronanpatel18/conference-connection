@@ -12,17 +12,20 @@ export default function Icon() {
           width: "32px",
           height: "32px",
           display: "flex",
+          flexDirection: "column",
           alignItems: "center",
           justifyContent: "center",
           background: "#b41e2a",
           color: "white",
-          fontSize: "14px",
+          fontSize: "11px",
           fontWeight: 700,
+          lineHeight: 1,
           borderRadius: "6px",
           fontFamily: "Arial, sans-serif",
         }}
       >
-        WSBC
+        <span>WS</span>
+        <span>BC</span>
       </div>
     ),
     {
