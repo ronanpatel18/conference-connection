@@ -208,15 +208,31 @@ Return ONLY valid JSON. Do not include markdown, code fences, or extra commentar
         try {
           aiResponse = JSON.parse(sanitized);
         } catch {
-          console.warn('[Gemini] Could not parse response as JSON');
-          aiResponse = {
-            summary: [
-              'Experienced professional in their field',
-              'Focused on collaboration and industry impact',
-              'Open to meaningful networking conversations',
-            ],
-            industry_tags: ['Business', 'Professional', 'Networking'],
-          };
+          console.warn('[Gemini] Could not parse response as JSON, retrying with strict prompt...');
+          const strictPrompt = `${prompt}\n\nIMPORTANT: Return ONLY a valid JSON object with keys "summary" and "industry_tags". Do not include any other text.`;
+          const strictResult = await genAI
+            .getGenerativeModel({
+              model: modelName,
+              generationConfig: {
+                responseMimeType: "application/json",
+                temperature: 0.2,
+              },
+            })
+            .generateContent(strictPrompt);
+          const strictText = (await strictResult.response).text().trim();
+          try {
+            aiResponse = JSON.parse(strictText);
+          } catch {
+            console.warn('[Gemini] Strict retry still invalid JSON');
+            aiResponse = {
+              summary: [
+                'Experienced professional in their field',
+                'Focused on collaboration and industry impact',
+                'Open to meaningful networking conversations',
+              ],
+              industry_tags: ['Business', 'Professional', 'Networking'],
+            };
+          }
         }
       }
 
