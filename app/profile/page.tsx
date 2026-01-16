@@ -13,6 +13,7 @@ export default function ProfilePage() {
   const [attendee, setAttendee] = useState<Attendee | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+  const [isRegenerating, setIsRegenerating] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [aiSummaryText, setAiSummaryText] = useState("");
@@ -105,6 +106,51 @@ export default function ProfilePage() {
       setError(err instanceof Error ? err.message : "Failed to save profile");
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const handleRegenerate = async () => {
+    if (!attendee) return;
+    setError("");
+    setSuccess("");
+    setIsRegenerating(true);
+
+    try {
+      const response = await fetch("/api/enrich-profile", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: attendee.name,
+          job_title: attendee.job_title || undefined,
+          company: attendee.company || undefined,
+          linkedin_url: attendee.linkedin_url || undefined,
+          about: attendee.about || undefined,
+        }),
+      });
+
+      const data = await response.json();
+      if (!response.ok || !data.success) {
+        throw new Error(data.error || "Failed to regenerate profile");
+      }
+
+      const summaryLines = Array.isArray(data.data?.summary) ? data.data.summary : [];
+      const bullets = summaryLines
+        .map((line: string) => line.trim())
+        .filter(Boolean)
+        .map((line: string) => (line.startsWith("•") ? line : `• ${line}`));
+
+      setAiSummaryText(bullets.join("\n"));
+      setAttendee({
+        ...attendee,
+        ai_summary: summaryLines.join("\n"),
+        industry_tags: data.data?.industry_tags || [],
+      });
+
+      setSuccess("AI summary regenerated. Review and save your changes.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to regenerate profile");
+    } finally {
+      setIsRegenerating(false);
     }
   };
 
@@ -301,6 +347,21 @@ export default function ProfilePage() {
                 )}
               />
               <p className="mt-2 text-xs text-gray-500">Use one bullet per line. Bullets are shown on the attendee card.</p>
+              <button
+                type="button"
+                onClick={handleRegenerate}
+                disabled={isRegenerating}
+                className="mt-3 inline-flex items-center px-4 py-2 rounded-full border border-badger-red text-badger-red text-sm font-semibold hover:bg-badger-red hover:text-white transition-all duration-200"
+              >
+                {isRegenerating ? (
+                  <span className="inline-flex items-center">
+                    <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                    Regenerating...
+                  </span>
+                ) : (
+                  "Regenerate AI Summary"
+                )}
+              </button>
             </div>
 
             <div>

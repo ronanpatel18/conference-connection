@@ -121,9 +121,10 @@ RULES:
 - Focus on accomplishments, expertise, and what makes them interesting to network with
 - Be specific but concise
 - Keep a professional yet approachable tone
-    - If information is limited, infer based on job title and company
-    - Treat the user-provided "About" text as the most reliable source and do not contradict it
-    - If sources are missing or ambiguous, avoid guessing specific employers or achievements
+  - If information is limited, keep statements general and based only on provided fields
+  - Treat the user-provided "About" text as the most reliable source and do not contradict it
+  - If a LinkedIn URL is provided, assume it is the correct profile and prioritize it in the summary
+  - If sources are missing or ambiguous, avoid guessing specific employers or achievements
 
 INDUSTRY TAGS RULES:
 - Tag 1: BROAD INDUSTRY (e.g., Technology, Finance, Healthcare, Retail, Media)
@@ -143,6 +144,7 @@ Analyze this person and create their professional summary:
 Name: ${name}
 ${job_title ? `Job Title: ${job_title}\n` : ''}${company ? `Company: ${company}\n` : ''}
 ${about ? `About (user-provided): ${about}\n` : ''}
+${linkedin_url ? `LinkedIn: ${linkedin_url}\n` : ''}
 
 Information found:
 ${contextText}

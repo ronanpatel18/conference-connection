@@ -15,6 +15,7 @@ export default function Header() {
   const [isAuthed, setIsAuthed] = useState(false);
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const profileMenuRef = useRef<HTMLDivElement | null>(null);
+  const [isAdmin, setIsAdmin] = useState(false);
 
   useEffect(() => {
     const fetchUser = async () => {
@@ -23,6 +24,7 @@ export default function Header() {
       if (!data.user) {
         setIsAuthed(false);
         setUserName(null);
+        setIsAdmin(false);
         return;
       }
 
@@ -33,6 +35,8 @@ export default function Header() {
         .eq("user_id", data.user.id)
         .maybeSingle();
       setUserName(attendee?.name ?? data.user.email ?? null);
+      const adminCheck = await fetch("/api/admin/me").then((res) => res.json()).catch(() => ({ isAdmin: false }));
+      setIsAdmin(!!adminCheck?.isAdmin);
     };
 
     fetchUser();
@@ -125,6 +129,16 @@ export default function Header() {
                 </button>
                 {profileMenuOpen && (
                   <div className="absolute right-0 mt-2 w-48 rounded-xl border border-gray-200 bg-white shadow-lg overflow-hidden">
+                    {isAdmin && (
+                      <Link
+                        href="/admin"
+                        className="flex items-center px-4 py-3 text-sm text-gray-700 hover:bg-gray-50"
+                        onClick={() => setProfileMenuOpen(false)}
+                      >
+                        <User className="w-4 h-4 mr-2" />
+                        Admin Panel
+                      </Link>
+                    )}
                     <Link
                       href="/profile"
                       className="flex items-center px-4 py-3 text-sm text-gray-700 hover:bg-gray-50"
