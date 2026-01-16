@@ -16,7 +16,10 @@ function isEmailAllowed(email?: string | null) {
   return normalized.includes(email.toLowerCase());
 }
 
-export async function PATCH(request: NextRequest, context: { params: { id: string } }) {
+export async function PATCH(
+  request: NextRequest,
+  { params }: { params: { id: string } }
+) {
   const supabase = await createServerClient();
   const {
     data: { user },
@@ -44,7 +47,7 @@ export async function PATCH(request: NextRequest, context: { params: { id: strin
   const { data, error } = await admin
     .from("attendees")
     .update(body)
-    .eq("id", context.params.id)
+    .eq("id", params.id)
     .select()
     .single();
 
