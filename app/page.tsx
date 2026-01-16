@@ -1,10 +1,31 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import { ArrowRight, Users, Calendar, MapPin } from "lucide-react";
+import { createClient } from "@/utils/supabase/client";
 
 export default function HomePage() {
+  const [isAuthed, setIsAuthed] = useState(false);
+
+  useEffect(() => {
+    const supabase = createClient();
+    const updateAuth = async () => {
+      const { data } = await supabase.auth.getUser();
+      setIsAuthed(!!data.user);
+    };
+
+    updateAuth();
+    const { data: authListener } = supabase.auth.onAuthStateChange(() => {
+      updateAuth();
+    });
+
+    return () => {
+      authListener.subscription.unsubscribe();
+    };
+  }, []);
+
   return (
     <main className="min-h-screen">
       {/* Hero Section */}
@@ -58,7 +79,7 @@ export default function HomePage() {
               <div className="bg-white border border-gray-200 rounded-xl p-4 text-center shadow-sm hover:shadow-md transition-shadow">
                 <Calendar className="w-6 h-6 text-badger-red mx-auto mb-2" />
                 <p className="text-sm text-gray-500 mb-1">Date</p>
-                <p className="text-gray-900 font-medium">TBA 2026</p>
+                <p className="text-gray-900 font-medium">February 27, 2026</p>
               </div>
               <div className="bg-white border border-gray-200 rounded-xl p-4 text-center shadow-sm hover:shadow-md transition-shadow">
                 <MapPin className="w-6 h-6 text-badger-red mx-auto mb-2" />
@@ -76,26 +97,16 @@ export default function HomePage() {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6, delay: 0.6 }}
-              className="flex flex-col sm:flex-row gap-4 justify-center items-center"
+              className="flex justify-center"
             >
-              <Link href="/onboarding">
+              <Link href={isAuthed ? "/network" : "/onboarding"}>
                 <motion.button
                   whileHover={{ scale: 1.02 }}
                   whileTap={{ scale: 0.98 }}
                   className="group px-8 py-4 rounded-full bg-badger-red text-white font-semibold text-lg hover:bg-badger-darkred transition-all duration-200 flex items-center space-x-2 shadow-lg"
                 >
-                  <span>Join the Network</span>
+                  <span>{isAuthed ? "View Attendees" : "Join the Network"}</span>
                   <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
-                </motion.button>
-              </Link>
-
-              <Link href="/network">
-                <motion.button
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                  className="px-8 py-4 rounded-full border-2 border-badger-red text-badger-red font-semibold text-lg hover:bg-badger-red hover:text-white transition-all duration-200"
-                >
-                  View Attendees
                 </motion.button>
               </Link>
             </motion.div>
