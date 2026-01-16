@@ -115,7 +115,7 @@ export default function HomePage() {
       </section>
 
       {/* About Section */}
-      <section className="py-20 md:py-32 px-4">
+      <section id="about" className="py-20 md:py-32 px-4">
         <div className="container mx-auto max-w-4xl">
           <motion.div
             initial={{ opacity: 0, y: 20 }}

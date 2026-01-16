@@ -19,7 +19,7 @@ export default function Footer() {
     {
       title: "Conference",
       links: [
-        { label: "About", href: "#about" },
+        { label: "About", href: "/#about" },
         { label: "Attendees", href: "/network" },
         { label: "Register", href: "/onboarding" },
       ],

@@ -75,7 +75,7 @@ export default function Header() {
 
   const navItems = [
     { href: "/network", label: "Attendees" },
-    { href: "https://www.wisconsinsbc.com/about-1", label: "About", external: true },
+    { href: "/#about", label: "About" },
   ];
 
   return (
@@ -95,24 +95,13 @@ export default function Header() {
           {/* Desktop Navigation */}
           <div className="hidden md:flex items-center space-x-8">
             {navItems.map((item) => (
-              item.external ? (
-                <a
-                  key={item.href}
-                  href={item.href}
-                  className="text-gray-700 hover:text-badger-red transition-colors duration-200 text-sm lg:text-base font-medium"
-                  rel="noreferrer"
-                >
-                  {item.label}
-                </a>
-              ) : (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  className="text-gray-700 hover:text-badger-red transition-colors duration-200 text-sm lg:text-base font-medium"
-                >
-                  {item.label}
-                </Link>
-              )
+              <Link
+                key={item.href}
+                href={item.href}
+                className="text-gray-700 hover:text-badger-red transition-colors duration-200 text-sm lg:text-base font-medium"
+              >
+                {item.label}
+              </Link>
             ))}
             <Link href="/onboarding">
               <motion.button
@@ -191,26 +180,14 @@ export default function Header() {
           >
             <div className="py-4 space-y-4">
               {navItems.map((item) => (
-                item.external ? (
-                  <a
-                    key={item.href}
-                    href={item.href}
-                    className="block text-gray-700 hover:text-badger-red transition-colors duration-200 py-2 font-medium"
-                    rel="noreferrer"
-                    onClick={() => setMobileMenuOpen(false)}
-                  >
-                    {item.label}
-                  </a>
-                ) : (
-                  <Link
-                    key={item.href}
-                    href={item.href}
-                    className="block text-gray-700 hover:text-badger-red transition-colors duration-200 py-2 font-medium"
-                    onClick={() => setMobileMenuOpen(false)}
-                  >
-                    {item.label}
-                  </Link>
-                )
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  className="block text-gray-700 hover:text-badger-red transition-colors duration-200 py-2 font-medium"
+                  onClick={() => setMobileMenuOpen(false)}
+                >
+                  {item.label}
+                </Link>
               ))}
               <Link href="/onboarding" className="w-full">
                 <button className="w-full px-6 py-2 rounded-full bg-badger-red text-white font-semibold hover:bg-badger-darkred transition-colors">

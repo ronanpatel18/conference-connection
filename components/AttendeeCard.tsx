@@ -157,6 +157,7 @@ export default function AttendeeCard({ attendee, index }: AttendeeCardProps) {
         className="relative w-full h-full min-h-[280px] cursor-pointer"
         onHoverStart={() => setIsFlipped(true)}
         onHoverEnd={() => setIsFlipped(false)}
+        onClick={() => setIsFlipped((prev) => !prev)}
         whileHover={{ scale: 1.02 }}
         transition={{ duration: 0.3 }}
       >
