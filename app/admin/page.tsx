@@ -13,6 +13,7 @@ export default function AdminPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [isRegenerating, setIsRegenerating] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [aiSummaryText, setAiSummaryText] = useState("");
@@ -145,6 +146,36 @@ export default function AdminPage() {
       setError(err instanceof Error ? err.message : "Failed to regenerate");
     } finally {
       setIsRegenerating(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!selected) return;
+    const confirmed = window.confirm(
+      `Permanently delete ${selected.name}'s profile? They can sign up again later with the same email.`
+    );
+    if (!confirmed) return;
+
+    setError("");
+    setSuccess("");
+    setIsDeleting(true);
+
+    try {
+      const response = await fetch(`/api/admin/attendees/${selected.id}`, {
+        method: "DELETE",
+      });
+      const data = await response.json();
+      if (!response.ok || !data.success) {
+        throw new Error(data.error || "Failed to delete");
+      }
+
+      setAttendees((prev) => prev.filter((attendee) => attendee.id !== selected.id));
+      setSelectedId(null);
+      setSuccess("Profile deleted.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to delete");
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -360,6 +391,21 @@ export default function AdminPage() {
                         <RefreshCcw className="w-4 h-4 mr-2" />
                         Regenerate
                       </span>
+                    )}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleDelete}
+                    disabled={isDeleting}
+                    className="inline-flex items-center px-5 py-2.5 rounded-full border border-red-500 text-red-600 font-semibold hover:bg-red-500 hover:text-white transition-all duration-200"
+                  >
+                    {isDeleting ? (
+                      <span className="inline-flex items-center">
+                        <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                        Deleting...
+                      </span>
+                    ) : (
+                      "Delete Profile"
                     )}
                   </button>
                 </div>
