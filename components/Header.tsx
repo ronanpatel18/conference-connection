@@ -107,15 +107,17 @@ export default function Header() {
                 {item.label}
               </Link>
             ))}
-            <Link href="/onboarding">
-              <motion.button
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-                className="px-6 py-2 rounded-full bg-badger-red text-white font-semibold hover:bg-badger-darkred transition-all duration-200 shadow-md"
-              >
-                Register
-              </motion.button>
-            </Link>
+            {!isAuthed && (
+              <Link href="/onboarding">
+                <motion.button
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  className="px-6 py-2 rounded-full bg-badger-red text-white font-semibold hover:bg-badger-darkred transition-all duration-200 shadow-md"
+                >
+                  Register
+                </motion.button>
+              </Link>
+            )}
             {isAuthed ? (
               <div className="relative" ref={profileMenuRef}>
                 <button
@@ -203,13 +205,25 @@ export default function Header() {
                   {item.label}
                 </Link>
               ))}
-              <Link href="/onboarding" className="w-full">
-                <button className="w-full px-6 py-2 rounded-full bg-badger-red text-white font-semibold hover:bg-badger-darkred transition-colors">
-                  Register
-                </button>
-              </Link>
+              {!isAuthed && (
+                <Link href="/onboarding" className="w-full">
+                  <button className="w-full px-6 py-2 rounded-full bg-badger-red text-white font-semibold hover:bg-badger-darkred transition-colors">
+                    Register
+                  </button>
+                </Link>
+              )}
               {isAuthed ? (
                 <div className="space-y-2">
+                  {isAdmin && (
+                    <Link
+                      href="/admin"
+                      className="w-full flex items-center justify-center px-6 py-2 rounded-full border border-gray-300 text-gray-700 font-semibold"
+                      onClick={() => setMobileMenuOpen(false)}
+                    >
+                      <User className="w-4 h-4 mr-2" />
+                      Admin Panel
+                    </Link>
+                  )}
                   <Link
                     href="/profile"
                     className="w-full flex items-center justify-center px-6 py-2 rounded-full border border-gray-300 text-gray-700 font-semibold"

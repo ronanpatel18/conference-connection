@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ChevronDown, ChevronUp, Loader2, RefreshCcw, Save } from "lucide-react";
+import { AlignJustify, Search, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { Attendee } from "@/types/database.types";
 
@@ -28,6 +29,9 @@ export default function AdminPage() {
     about: "",
     industry_tags: "",
   });
+  const [searchTerm, setSearchTerm] = useState("");
+  const [isMultiSelect, setIsMultiSelect] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     const load = async () => {
@@ -54,6 +58,16 @@ export default function AdminPage() {
     [attendees, selectedId]
   );
 
+  const filteredAttendees = useMemo(() => {
+    const query = searchTerm.trim().toLowerCase();
+    if (!query) return attendees;
+    return attendees.filter((attendee) =>
+      [attendee.name, attendee.email, attendee.company, attendee.job_title]
+        .filter(Boolean)
+        .some((field) => field?.toLowerCase().includes(query))
+    );
+  }, [attendees, searchTerm]);
+
   useEffect(() => {
     if (!selected) {
       setAiSummaryText("");
@@ -74,6 +88,59 @@ export default function AdminPage() {
         attendee.id === selected.id ? { ...attendee, ...patch } : attendee
       )
     );
+  };
+
+  const toggleMultiSelect = () => {
+    setIsMultiSelect((prev) => !prev);
+    setSelectedIds(new Set());
+  };
+
+  const toggleSelectedId = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  };
+
+  const handleBulkDelete = async () => {
+    if (selectedIds.size === 0) return;
+    const confirmed = window.confirm(
+      `Permanently delete ${selectedIds.size} profile(s)? This cannot be undone.`
+    );
+    if (!confirmed) return;
+
+    setError("");
+    setSuccess("");
+    setIsDeleting(true);
+
+    try {
+      const ids = Array.from(selectedIds);
+      const results = await Promise.all(
+        ids.map((id) =>
+          fetch(`/api/admin/attendees/${id}`, { method: "DELETE" }).then((res) => res.json())
+        )
+      );
+
+      const failures = results.filter((result) => !result?.success);
+      if (failures.length > 0) {
+        throw new Error("Some profiles could not be deleted.");
+      }
+
+      setAttendees((prev) => prev.filter((attendee) => !selectedIds.has(attendee.id)));
+      setSelectedIds(new Set());
+      setSelectedId(null);
+      setIsMultiSelect(false);
+      setSuccess("Profiles deleted.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to delete profiles");
+    } finally {
+      setIsDeleting(false);
+    }
   };
 
   const handleSave = async () => {
@@ -237,6 +304,8 @@ export default function AdminPage() {
 
       setAttendees((prev) => prev.filter((attendee) => attendee.id !== selected.id));
       setSelectedId(null);
+      setSelectedIds(new Set());
+      setIsMultiSelect(false);
       setSuccess("Profile deleted.");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to delete");
@@ -259,54 +328,111 @@ export default function AdminPage() {
         <h1 className="text-3xl font-bold text-badger-red mb-6">Admin: Manage Attendees</h1>
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="border border-gray-200 rounded-2xl p-4">
-            <h2 className="text-lg font-semibold text-gray-900 mb-3">Attendees</h2>
-            <div className="space-y-2 max-h-[520px] overflow-y-auto">
-              {attendees.map((attendee) => (
-                <button
-                  key={attendee.id}
-                  type="button"
-                  onClick={() => setSelectedId(attendee.id)}
-                  className={cn(
-                    "w-full text-left px-3 py-2 rounded-xl border transition-colors",
-                    attendee.id === selectedId
-                      ? "border-badger-red bg-badger-red/10"
-                      : "border-gray-200 hover:border-badger-red/50"
-                  )}
-                >
-                  <p className="text-sm font-semibold text-gray-900">{attendee.name}</p>
-                  <p className="text-xs text-gray-500">
-                    {attendee.email || "Email pending"}
-                  </p>
-                </button>
-              ))}
-            </div>
-
-            <div className="mt-6 border-t border-gray-200 pt-4">
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="text-lg font-semibold text-gray-900">Attendees</h2>
               <button
                 type="button"
                 onClick={() => setIsAddOpen((prev) => !prev)}
-                className="w-full inline-flex items-center justify-between px-3 py-2 rounded-xl border border-gray-200 text-sm font-semibold text-gray-900 hover:border-badger-red/50 transition-all duration-200"
+                className="inline-flex items-center px-3 py-1.5 rounded-full border border-gray-200 text-xs font-semibold text-gray-900 hover:border-badger-red/50 transition-all duration-200"
               >
-                <span>Add attendee</span>
+                Add attendee
                 {isAddOpen ? (
-                  <ChevronUp className="w-4 h-4" />
+                  <ChevronUp className="w-4 h-4 ml-2" />
                 ) : (
-                  <ChevronDown className="w-4 h-4" />
+                  <ChevronDown className="w-4 h-4 ml-2" />
                 )}
               </button>
+            </div>
 
-              {isAddOpen && (
-                <div className="mt-3 space-y-3">
-                  {isCreating && (
-                    <p className="text-xs text-gray-500 text-center">
-                      Generating AI summary and tags...
-                    </p>
+            <div className="space-y-3 mb-4">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                <input
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  placeholder="Search attendees..."
+                  className={cn(
+                    "w-full pl-9 pr-3 py-2 rounded-xl",
+                    "bg-gray-50 border border-gray-300",
+                    "text-gray-900 placeholder:text-gray-400",
+                    "focus:outline-none focus:ring-2 focus:ring-badger-red focus:border-transparent",
+                    "transition-all duration-200"
                   )}
-                  <form onSubmit={handleCreateAttendee} className="space-y-3">
+                />
+              </div>
+              <div className="flex items-center justify-between">
+                <button
+                  type="button"
+                  onClick={toggleMultiSelect}
+                  className={cn(
+                    "inline-flex items-center px-3 py-2 rounded-full text-xs font-semibold border transition-all",
+                    isMultiSelect
+                      ? "border-badger-red text-badger-red"
+                      : "border-gray-300 text-gray-600 hover:border-badger-red/50"
+                  )}
+                >
+                  <AlignJustify className="w-4 h-4 mr-2" />
+                  Multi-select
+                </button>
+                {isMultiSelect && (
+                  <button
+                    type="button"
+                    onClick={handleBulkDelete}
+                    disabled={isDeleting || selectedIds.size === 0}
+                    className={cn(
+                      "inline-flex items-center px-3 py-2 rounded-full text-xs font-semibold border transition-all",
+                      selectedIds.size === 0 || isDeleting
+                        ? "border-gray-300 text-gray-400"
+                        : "border-red-500 text-red-600 hover:bg-red-50"
+                    )}
+                  >
+                    <Trash2 className="w-4 h-4 mr-2" />
+                    Delete selected
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {isAddOpen && (
+              <div className="mb-4 space-y-3">
+                {isCreating && (
+                  <p className="text-xs text-gray-500 text-center">
+                    Generating AI summary and tags...
+                  </p>
+                )}
+                <form onSubmit={handleCreateAttendee} className="space-y-3">
+                  <input
+                    value={newAttendee.name}
+                    onChange={(e) => setNewAttendee({ ...newAttendee, name: e.target.value })}
+                    placeholder="Full name"
+                    className={cn(
+                      "w-full px-3 py-2 rounded-xl",
+                      "bg-gray-50 border border-gray-300",
+                      "text-gray-900 placeholder:text-gray-400",
+                      "focus:outline-none focus:ring-2 focus:ring-badger-red focus:border-transparent",
+                      "transition-all duration-200"
+                    )}
+                  />
+                  <input
+                    value={newAttendee.email}
+                    onChange={(e) => setNewAttendee({ ...newAttendee, email: e.target.value })}
+                    placeholder="Email (optional)"
+                    type="email"
+                    className={cn(
+                      "w-full px-3 py-2 rounded-xl",
+                      "bg-gray-50 border border-gray-300",
+                      "text-gray-900 placeholder:text-gray-400",
+                      "focus:outline-none focus:ring-2 focus:ring-badger-red focus:border-transparent",
+                      "transition-all duration-200"
+                    )}
+                  />
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                     <input
-                      value={newAttendee.name}
-                      onChange={(e) => setNewAttendee({ ...newAttendee, name: e.target.value })}
-                      placeholder="Full name"
+                      value={newAttendee.job_title}
+                      onChange={(e) =>
+                        setNewAttendee({ ...newAttendee, job_title: e.target.value })
+                      }
+                      placeholder="Job title"
                       className={cn(
                         "w-full px-3 py-2 rounded-xl",
                         "bg-gray-50 border border-gray-300",
@@ -316,10 +442,9 @@ export default function AdminPage() {
                       )}
                     />
                     <input
-                      value={newAttendee.email}
-                      onChange={(e) => setNewAttendee({ ...newAttendee, email: e.target.value })}
-                      placeholder="Email (optional)"
-                      type="email"
+                      value={newAttendee.company}
+                      onChange={(e) => setNewAttendee({ ...newAttendee, company: e.target.value })}
+                      placeholder="Company"
                       className={cn(
                         "w-full px-3 py-2 rounded-xl",
                         "bg-gray-50 border border-gray-300",
@@ -328,100 +453,105 @@ export default function AdminPage() {
                         "transition-all duration-200"
                       )}
                     />
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                      <input
-                        value={newAttendee.job_title}
-                        onChange={(e) =>
-                          setNewAttendee({ ...newAttendee, job_title: e.target.value })
-                        }
-                        placeholder="Job title"
-                        className={cn(
-                          "w-full px-3 py-2 rounded-xl",
-                          "bg-gray-50 border border-gray-300",
-                          "text-gray-900 placeholder:text-gray-400",
-                          "focus:outline-none focus:ring-2 focus:ring-badger-red focus:border-transparent",
-                          "transition-all duration-200"
-                        )}
-                      />
-                      <input
-                        value={newAttendee.company}
-                        onChange={(e) =>
-                          setNewAttendee({ ...newAttendee, company: e.target.value })
-                        }
-                        placeholder="Company"
-                        className={cn(
-                          "w-full px-3 py-2 rounded-xl",
-                          "bg-gray-50 border border-gray-300",
-                          "text-gray-900 placeholder:text-gray-400",
-                          "focus:outline-none focus:ring-2 focus:ring-badger-red focus:border-transparent",
-                          "transition-all duration-200"
-                        )}
-                      />
+                  </div>
+                  <input
+                    value={newAttendee.linkedin_url}
+                    onChange={(e) =>
+                      setNewAttendee({ ...newAttendee, linkedin_url: e.target.value })}
+                    placeholder="LinkedIn URL (optional)"
+                    className={cn(
+                      "w-full px-3 py-2 rounded-xl",
+                      "bg-gray-50 border border-gray-300",
+                      "text-gray-900 placeholder:text-gray-400",
+                      "focus:outline-none focus:ring-2 focus:ring-badger-red focus:border-transparent",
+                      "transition-all duration-200"
+                    )}
+                  />
+                  <textarea
+                    value={newAttendee.about}
+                    onChange={(e) => setNewAttendee({ ...newAttendee, about: e.target.value })}
+                    placeholder="About (optional)"
+                    rows={3}
+                    className={cn(
+                      "w-full px-3 py-2 rounded-xl",
+                      "bg-gray-50 border border-gray-300",
+                      "text-gray-900 placeholder:text-gray-400",
+                      "focus:outline-none focus:ring-2 focus:ring-badger-red focus:border-transparent",
+                      "transition-all duration-200",
+                      "resize-none"
+                    )}
+                  />
+                  <input
+                    value={newAttendee.industry_tags}
+                    onChange={(e) =>
+                      setNewAttendee({ ...newAttendee, industry_tags: e.target.value })}
+                    placeholder="Industry tags (comma separated)"
+                    className={cn(
+                      "w-full px-3 py-2 rounded-xl",
+                      "bg-gray-50 border border-gray-300",
+                      "text-gray-900 placeholder:text-gray-400",
+                      "focus:outline-none focus:ring-2 focus:ring-badger-red focus:border-transparent",
+                      "transition-all duration-200"
+                    )}
+                  />
+                  <button
+                    type="submit"
+                    disabled={isCreating}
+                    className="w-full inline-flex items-center justify-center px-4 py-2.5 rounded-full bg-badger-red text-white font-semibold hover:bg-badger-darkred transition-all duration-200"
+                  >
+                    {isCreating ? (
+                      <span className="inline-flex items-center">
+                        <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                        Creating...
+                      </span>
+                    ) : (
+                      "Create Profile"
+                    )}
+                  </button>
+                </form>
+              </div>
+            )}
+
+            <div className="space-y-2 max-h-[520px] overflow-y-auto">
+              {filteredAttendees.map((attendee) => {
+                const isSelected = selectedIds.has(attendee.id);
+                return (
+                  <button
+                    key={attendee.id}
+                    type="button"
+                    onClick={() =>
+                      isMultiSelect ? toggleSelectedId(attendee.id) : setSelectedId(attendee.id)
+                    }
+                    className={cn(
+                      "w-full text-left px-3 py-2 rounded-xl border transition-colors",
+                      isMultiSelect && isSelected
+                        ? "border-badger-red bg-badger-red/10"
+                        : attendee.id === selectedId
+                        ? "border-badger-red bg-badger-red/10"
+                        : "border-gray-200 hover:border-badger-red/50"
+                    )}
+                  >
+                    <div className="flex items-start justify-between">
+                      <div>
+                        <p className="text-sm font-semibold text-gray-900">{attendee.name}</p>
+                        <p className="text-xs text-gray-500">
+                          {attendee.email || "Email pending"}
+                        </p>
+                      </div>
+                      {isMultiSelect && (
+                        <input
+                          type="checkbox"
+                          checked={isSelected}
+                          onChange={() => toggleSelectedId(attendee.id)}
+                          className="mt-1 h-4 w-4 rounded border-gray-300 text-badger-red focus:ring-badger-red"
+                        />
+                      )}
                     </div>
-                    <input
-                      value={newAttendee.linkedin_url}
-                      onChange={(e) =>
-                        setNewAttendee({ ...newAttendee, linkedin_url: e.target.value })
-                      }
-                      placeholder="LinkedIn URL (optional)"
-                      className={cn(
-                        "w-full px-3 py-2 rounded-xl",
-                        "bg-gray-50 border border-gray-300",
-                        "text-gray-900 placeholder:text-gray-400",
-                        "focus:outline-none focus:ring-2 focus:ring-badger-red focus:border-transparent",
-                        "transition-all duration-200"
-                      )}
-                    />
-                    <textarea
-                      value={newAttendee.about}
-                      onChange={(e) =>
-                        setNewAttendee({ ...newAttendee, about: e.target.value })
-                      }
-                      placeholder="About (optional)"
-                      rows={3}
-                      className={cn(
-                        "w-full px-3 py-2 rounded-xl",
-                        "bg-gray-50 border border-gray-300",
-                        "text-gray-900 placeholder:text-gray-400",
-                        "focus:outline-none focus:ring-2 focus:ring-badger-red focus:border-transparent",
-                        "transition-all duration-200",
-                        "resize-none"
-                      )}
-                    />
-                    <input
-                      value={newAttendee.industry_tags}
-                      onChange={(e) =>
-                        setNewAttendee({ ...newAttendee, industry_tags: e.target.value })
-                      }
-                      placeholder="Industry tags (comma separated)"
-                      className={cn(
-                        "w-full px-3 py-2 rounded-xl",
-                        "bg-gray-50 border border-gray-300",
-                        "text-gray-900 placeholder:text-gray-400",
-                        "focus:outline-none focus:ring-2 focus:ring-badger-red focus:border-transparent",
-                        "transition-all duration-200"
-                      )}
-                    />
-                    <button
-                      type="submit"
-                      disabled={isCreating}
-                      className="w-full inline-flex items-center justify-center px-4 py-2.5 rounded-full bg-badger-red text-white font-semibold hover:bg-badger-darkred transition-all duration-200"
-                    >
-                      {isCreating ? (
-                        <span className="inline-flex items-center">
-                          <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                          Creating...
-                        </span>
-                      ) : (
-                        "Create Profile"
-                      )}
-                    </button>
-                  </form>
-                </div>
-              )}
+                  </button>
+                );
+              })}
             </div>
           </div>
-
           <div className="lg:col-span-2 border border-gray-200 rounded-2xl p-6">
             {!selected ? (
               <p className="text-gray-600">Select an attendee to edit.</p>

@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { Sparkles, ExternalLink, Briefcase, Building2 } from "lucide-react";
+import { Sparkles, Linkedin, Briefcase, Building2 } from "lucide-react";
 import type { Attendee } from "@/types/database.types";
 import { cn } from "@/lib/utils";
 import {
@@ -202,13 +202,14 @@ export default function AttendeeCard({ attendee, index }: AttendeeCardProps) {
                 rel="noopener noreferrer"
                 onClick={(e) => e.stopPropagation()}
                 className={cn(
-                  "inline-flex items-center space-x-2 text-sm font-medium transition-colors",
-                  "text-gray-700",
-                  "hover:underline"
+                  "inline-flex items-center justify-center space-x-2",
+                  "px-4 py-2 rounded-full text-sm font-semibold",
+                  "bg-[#0A66C2] text-white",
+                  "hover:bg-[#004182] transition-colors"
                 )}
               >
-                <ExternalLink className="w-4 h-4" />
-                <span>View LinkedIn Profile</span>
+                <Linkedin className="w-4 h-4" />
+                <span>Connect on LinkedIn</span>
               </a>
             )}
           </div>
