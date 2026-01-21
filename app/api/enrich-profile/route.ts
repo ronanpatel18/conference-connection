@@ -114,7 +114,7 @@ export async function POST(request: NextRequest) {
 TASK:
 1. Analyze the provided information about a conference attendee
 2. Create exactly 3 bullet points that capture their professional vibe (achievements, expertise, interesting facts)
-3. Extract exactly 3 industry tags.
+3. Extract 1 to 3 subcategory tags from the approved list.
 
 RULES:
 - Each bullet point should be 10-20 words
@@ -127,11 +127,19 @@ RULES:
   - If sources are missing or ambiguous, avoid guessing specific employers or achievements
 
 INDUSTRY TAGS RULES:
-- Tag 1: BROAD INDUSTRY (e.g., Technology, Finance, Healthcare, Retail, Media)
-- Tag 2: SPECIFIC DOMAIN (e.g., AI, Investment Banking, Digital Marketing, Cloud Computing)
-- Tag 3: ROLE FUNCTION (e.g., Leadership, Strategy, Engineering, Sales, Product)
-- Ensure tags are single words or very short phrases
-- Tags MUST align with the profile summary generated
+- Choose 1 to 3 SUBCATEGORY tags from the approved list below (use exact casing and wording).
+- Tags should be distinct and align with the profile summary.
+- Do NOT output the main category names; only subcategories.
+
+APPROVED SUBCATEGORY LIST (grouped by main category):
+- Brand Development and Fan Experience: Fan Experience, Brand Strategy, Community Engagement
+- Brand Communications: Public Relations, Communications, Content
+- Journalism and Media Operations: Journalism, Media Operations, Broadcast
+- Sports Finance and Real Estate: Finance, Real Estate, Consulting
+- Talent Representation: Talent Representation, Athlete Relations, Negotiations
+- Sales, Partnerships and Merchandise: Sales, Partnerships, Merchandise
+- Data and Technology: Data, Analytics, Technology
+- Team Operations and Coaching: Team Operations, Coaching, Player Development
 
 OUTPUT FORMAT (JSON only):
 {
@@ -232,7 +240,11 @@ Return ONLY valid JSON. Do not include markdown, code fences, or extra commentar
                 'Focused on collaboration and industry impact',
                 'Open to meaningful networking conversations',
               ],
-              industry_tags: ['Business', 'Professional', 'Networking'],
+              industry_tags: [
+                'Brand Communications',
+                'Data and Technology',
+                'Sales, Partnerships and Merchandise',
+              ],
             };
           }
         }

@@ -75,7 +75,17 @@ export async function generateSummary(params: {
 TASK:
 1. Analyze information about a conference attendee
 2. Create exactly 3 bullet points (10-20 words each) capturing their professional vibe
-3. Extract exactly 3 industry tags (single words or short phrases)
+3. Extract 1 to 3 subcategory tags from the approved list (do not use main category names)
+
+APPROVED SUBCATEGORY LIST (grouped by main category):
+- Brand Development and Fan Experience: Fan Experience, Brand Strategy, Community Engagement
+- Brand Communications: Public Relations, Communications, Content
+- Journalism and Media Operations: Journalism, Media Operations, Broadcast
+- Sports Finance and Real Estate: Finance, Real Estate, Consulting
+- Talent Representation: Talent Representation, Athlete Relations, Negotiations
+- Sales, Partnerships and Merchandise: Sales, Partnerships, Merchandise
+- Data and Technology: Data, Analytics, Technology
+- Team Operations and Coaching: Team Operations, Coaching, Player Development
 
 OUTPUT FORMAT (JSON):
 {

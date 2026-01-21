@@ -8,6 +8,7 @@ import { createClient } from "@/utils/supabase/client";
 import type { Attendee } from "@/types/database.types";
 import AttendeeCard from "@/components/AttendeeCard";
 import { cn } from "@/lib/utils";
+import { CATEGORY_THEMES, getMainCategoryForSubcategory, getThemeForCategory } from "@/lib/industry";
 
 export default function NetworkPage() {
   const router = useRouter();
@@ -17,7 +18,6 @@ export default function NetworkPage() {
   const [error, setError] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedIndustry, setSelectedIndustry] = useState<string | null>(null);
-  const [allIndustries, setAllIndustries] = useState<string[]>([]);
 
   const loadAttendees = useCallback(async () => {
     try {
@@ -35,13 +35,6 @@ export default function NetworkPage() {
       if (error) throw error;
 
       setAttendees(data || []);
-      
-      // Extract all unique industry tags
-      const industries = new Set<string>();
-      data?.forEach((attendee) => {
-        attendee.industry_tags?.forEach((tag: string) => industries.add(tag));
-      });
-      setAllIndustries(Array.from(industries).sort());
     } catch (err) {
       console.error("Error loading attendees:", err);
       setError(err instanceof Error ? err.message : "Failed to load attendees");
@@ -66,7 +59,11 @@ export default function NetworkPage() {
 
     // Filter by selected industry
     if (selectedIndustry) {
-      filtered = filtered.filter((a) => a.industry_tags?.includes(selectedIndustry));
+      filtered = filtered.filter((a) =>
+        (a.industry_tags || []).some(
+          (tag) => getMainCategoryForSubcategory(tag) === selectedIndustry
+        )
+      );
     }
 
     setFilteredAttendees(filtered);
@@ -173,20 +170,28 @@ export default function NetworkPage() {
             >
               All Industries
             </button>
-            {allIndustries.map((industry) => (
-              <button
-                key={industry}
-                onClick={() => setSelectedIndustry(industry)}
-                className={cn(
-                  "px-4 py-2 rounded-full text-sm font-medium transition-all duration-200",
-                  selectedIndustry === industry
-                    ? "bg-badger-red text-white shadow-md"
-                    : "bg-gray-100 text-gray-600 hover:bg-gray-200 border border-gray-300"
-                )}
-              >
-                {industry}
-              </button>
-            ))}
+            {CATEGORY_THEMES.map((industry) => {
+              const theme = getThemeForCategory(industry.name);
+              const isSelected = selectedIndustry === industry.name;
+
+              return (
+                <button
+                  key={industry.name}
+                  onClick={() => setSelectedIndustry(industry.name)}
+                  className={cn(
+                    "px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 border",
+                    "hover:shadow-sm"
+                  )}
+                  style={{
+                    backgroundColor: isSelected ? theme?.main : theme?.tint,
+                    color: isSelected ? "#ffffff" : theme?.main,
+                    borderColor: theme?.main,
+                  }}
+                >
+                  {industry.name}
+                </button>
+              );
+            })}
           </div>
         </motion.div>
 

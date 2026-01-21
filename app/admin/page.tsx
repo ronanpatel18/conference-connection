@@ -296,122 +296,128 @@ export default function AdminPage() {
               </button>
 
               {isAddOpen && (
-                {isCreating && (
-                  <p className="text-xs text-gray-500 text-center">
-                    Generating AI summary and tags...
-                  </p>
-                )}
-                <form onSubmit={handleCreateAttendee} className="space-y-3 mt-3">
-                <input
-                  value={newAttendee.name}
-                  onChange={(e) => setNewAttendee({ ...newAttendee, name: e.target.value })}
-                  placeholder="Full name"
-                  className={cn(
-                    "w-full px-3 py-2 rounded-xl",
-                    "bg-gray-50 border border-gray-300",
-                    "text-gray-900 placeholder:text-gray-400",
-                    "focus:outline-none focus:ring-2 focus:ring-badger-red focus:border-transparent",
-                    "transition-all duration-200"
+                <div className="mt-3 space-y-3">
+                  {isCreating && (
+                    <p className="text-xs text-gray-500 text-center">
+                      Generating AI summary and tags...
+                    </p>
                   )}
-                />
-                <input
-                  value={newAttendee.email}
-                  onChange={(e) => setNewAttendee({ ...newAttendee, email: e.target.value })}
-                  placeholder="Email (optional)"
-                  type="email"
-                  className={cn(
-                    "w-full px-3 py-2 rounded-xl",
-                    "bg-gray-50 border border-gray-300",
-                    "text-gray-900 placeholder:text-gray-400",
-                    "focus:outline-none focus:ring-2 focus:ring-badger-red focus:border-transparent",
-                    "transition-all duration-200"
-                  )}
-                />
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  <input
-                    value={newAttendee.job_title}
-                    onChange={(e) =>
-                      setNewAttendee({ ...newAttendee, job_title: e.target.value })
-                    }
-                    placeholder="Job title"
-                    className={cn(
-                      "w-full px-3 py-2 rounded-xl",
-                      "bg-gray-50 border border-gray-300",
-                      "text-gray-900 placeholder:text-gray-400",
-                      "focus:outline-none focus:ring-2 focus:ring-badger-red focus:border-transparent",
-                      "transition-all duration-200"
-                    )}
-                  />
-                  <input
-                    value={newAttendee.company}
-                    onChange={(e) => setNewAttendee({ ...newAttendee, company: e.target.value })}
-                    placeholder="Company"
-                    className={cn(
-                      "w-full px-3 py-2 rounded-xl",
-                      "bg-gray-50 border border-gray-300",
-                      "text-gray-900 placeholder:text-gray-400",
-                      "focus:outline-none focus:ring-2 focus:ring-badger-red focus:border-transparent",
-                      "transition-all duration-200"
-                    )}
-                  />
+                  <form onSubmit={handleCreateAttendee} className="space-y-3">
+                    <input
+                      value={newAttendee.name}
+                      onChange={(e) => setNewAttendee({ ...newAttendee, name: e.target.value })}
+                      placeholder="Full name"
+                      className={cn(
+                        "w-full px-3 py-2 rounded-xl",
+                        "bg-gray-50 border border-gray-300",
+                        "text-gray-900 placeholder:text-gray-400",
+                        "focus:outline-none focus:ring-2 focus:ring-badger-red focus:border-transparent",
+                        "transition-all duration-200"
+                      )}
+                    />
+                    <input
+                      value={newAttendee.email}
+                      onChange={(e) => setNewAttendee({ ...newAttendee, email: e.target.value })}
+                      placeholder="Email (optional)"
+                      type="email"
+                      className={cn(
+                        "w-full px-3 py-2 rounded-xl",
+                        "bg-gray-50 border border-gray-300",
+                        "text-gray-900 placeholder:text-gray-400",
+                        "focus:outline-none focus:ring-2 focus:ring-badger-red focus:border-transparent",
+                        "transition-all duration-200"
+                      )}
+                    />
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      <input
+                        value={newAttendee.job_title}
+                        onChange={(e) =>
+                          setNewAttendee({ ...newAttendee, job_title: e.target.value })
+                        }
+                        placeholder="Job title"
+                        className={cn(
+                          "w-full px-3 py-2 rounded-xl",
+                          "bg-gray-50 border border-gray-300",
+                          "text-gray-900 placeholder:text-gray-400",
+                          "focus:outline-none focus:ring-2 focus:ring-badger-red focus:border-transparent",
+                          "transition-all duration-200"
+                        )}
+                      />
+                      <input
+                        value={newAttendee.company}
+                        onChange={(e) =>
+                          setNewAttendee({ ...newAttendee, company: e.target.value })
+                        }
+                        placeholder="Company"
+                        className={cn(
+                          "w-full px-3 py-2 rounded-xl",
+                          "bg-gray-50 border border-gray-300",
+                          "text-gray-900 placeholder:text-gray-400",
+                          "focus:outline-none focus:ring-2 focus:ring-badger-red focus:border-transparent",
+                          "transition-all duration-200"
+                        )}
+                      />
+                    </div>
+                    <input
+                      value={newAttendee.linkedin_url}
+                      onChange={(e) =>
+                        setNewAttendee({ ...newAttendee, linkedin_url: e.target.value })
+                      }
+                      placeholder="LinkedIn URL (optional)"
+                      className={cn(
+                        "w-full px-3 py-2 rounded-xl",
+                        "bg-gray-50 border border-gray-300",
+                        "text-gray-900 placeholder:text-gray-400",
+                        "focus:outline-none focus:ring-2 focus:ring-badger-red focus:border-transparent",
+                        "transition-all duration-200"
+                      )}
+                    />
+                    <textarea
+                      value={newAttendee.about}
+                      onChange={(e) =>
+                        setNewAttendee({ ...newAttendee, about: e.target.value })
+                      }
+                      placeholder="About (optional)"
+                      rows={3}
+                      className={cn(
+                        "w-full px-3 py-2 rounded-xl",
+                        "bg-gray-50 border border-gray-300",
+                        "text-gray-900 placeholder:text-gray-400",
+                        "focus:outline-none focus:ring-2 focus:ring-badger-red focus:border-transparent",
+                        "transition-all duration-200",
+                        "resize-none"
+                      )}
+                    />
+                    <input
+                      value={newAttendee.industry_tags}
+                      onChange={(e) =>
+                        setNewAttendee({ ...newAttendee, industry_tags: e.target.value })
+                      }
+                      placeholder="Industry tags (comma separated)"
+                      className={cn(
+                        "w-full px-3 py-2 rounded-xl",
+                        "bg-gray-50 border border-gray-300",
+                        "text-gray-900 placeholder:text-gray-400",
+                        "focus:outline-none focus:ring-2 focus:ring-badger-red focus:border-transparent",
+                        "transition-all duration-200"
+                      )}
+                    />
+                    <button
+                      type="submit"
+                      disabled={isCreating}
+                      className="w-full inline-flex items-center justify-center px-4 py-2.5 rounded-full bg-badger-red text-white font-semibold hover:bg-badger-darkred transition-all duration-200"
+                    >
+                      {isCreating ? (
+                        <span className="inline-flex items-center">
+                          <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                          Creating...
+                        </span>
+                      ) : (
+                        "Create Profile"
+                      )}
+                    </button>
+                  </form>
                 </div>
-                <input
-                  value={newAttendee.linkedin_url}
-                  onChange={(e) =>
-                    setNewAttendee({ ...newAttendee, linkedin_url: e.target.value })
-                  }
-                  placeholder="LinkedIn URL (optional)"
-                  className={cn(
-                    "w-full px-3 py-2 rounded-xl",
-                    "bg-gray-50 border border-gray-300",
-                    "text-gray-900 placeholder:text-gray-400",
-                    "focus:outline-none focus:ring-2 focus:ring-badger-red focus:border-transparent",
-                    "transition-all duration-200"
-                  )}
-                />
-                <textarea
-                  value={newAttendee.about}
-                  onChange={(e) => setNewAttendee({ ...newAttendee, about: e.target.value })}
-                  placeholder="About (optional)"
-                  rows={3}
-                  className={cn(
-                    "w-full px-3 py-2 rounded-xl",
-                    "bg-gray-50 border border-gray-300",
-                    "text-gray-900 placeholder:text-gray-400",
-                    "focus:outline-none focus:ring-2 focus:ring-badger-red focus:border-transparent",
-                    "transition-all duration-200",
-                    "resize-none"
-                  )}
-                />
-                <input
-                  value={newAttendee.industry_tags}
-                  onChange={(e) =>
-                    setNewAttendee({ ...newAttendee, industry_tags: e.target.value })
-                  }
-                  placeholder="Industry tags (comma separated)"
-                  className={cn(
-                    "w-full px-3 py-2 rounded-xl",
-                    "bg-gray-50 border border-gray-300",
-                    "text-gray-900 placeholder:text-gray-400",
-                    "focus:outline-none focus:ring-2 focus:ring-badger-red focus:border-transparent",
-                    "transition-all duration-200"
-                  )}
-                />
-                <button
-                  type="submit"
-                  disabled={isCreating}
-                  className="w-full inline-flex items-center justify-center px-4 py-2.5 rounded-full bg-badger-red text-white font-semibold hover:bg-badger-darkred transition-all duration-200"
-                >
-                  {isCreating ? (
-                    <span className="inline-flex items-center">
-                      <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                      Creating...
-                    </span>
-                  ) : (
-                    "Create Profile"
-                  )}
-                </button>
-                </form>
               )}
             </div>
           </div>
