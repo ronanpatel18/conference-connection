@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Loader2, RefreshCcw, Save } from "lucide-react";
+import { ChevronDown, ChevronUp, Loader2, RefreshCcw, Save } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { Attendee } from "@/types/database.types";
 
@@ -14,9 +14,20 @@ export default function AdminPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [isRegenerating, setIsRegenerating] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isCreating, setIsCreating] = useState(false);
+  const [isAddOpen, setIsAddOpen] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [aiSummaryText, setAiSummaryText] = useState("");
+  const [newAttendee, setNewAttendee] = useState({
+    name: "",
+    email: "",
+    job_title: "",
+    company: "",
+    linkedin_url: "",
+    about: "",
+    industry_tags: "",
+  });
 
   useEffect(() => {
     const load = async () => {
@@ -83,7 +94,7 @@ export default function AdminPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           name: selected.name,
-          email: selected.email,
+          email: selected.email || null,
           job_title: selected.job_title,
           company: selected.company,
           linkedin_url: selected.linkedin_url,
@@ -149,6 +160,61 @@ export default function AdminPage() {
     }
   };
 
+  const handleCreateAttendee = async (event: React.FormEvent) => {
+    event.preventDefault();
+    setError("");
+    setSuccess("");
+
+    const name = newAttendee.name.trim();
+    if (!name) {
+      setError("Name is required to create a profile.");
+      return;
+    }
+
+    setIsCreating(true);
+
+    try {
+      const response = await fetch("/api/admin/attendees", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name,
+          email: newAttendee.email.trim() || null,
+          job_title: newAttendee.job_title.trim() || null,
+          company: newAttendee.company.trim() || null,
+          linkedin_url: newAttendee.linkedin_url.trim() || null,
+          about: newAttendee.about.trim() || null,
+          industry_tags: newAttendee.industry_tags
+            .split(",")
+            .map((tag) => tag.trim())
+            .filter(Boolean),
+        }),
+      });
+
+      const data = await response.json();
+      if (!response.ok || !data.success) {
+        throw new Error(data.error || "Failed to create attendee");
+      }
+
+      setAttendees((prev) => [data.data, ...prev]);
+      setSelectedId(data.data.id);
+      setNewAttendee({
+        name: "",
+        email: "",
+        job_title: "",
+        company: "",
+        linkedin_url: "",
+        about: "",
+        industry_tags: "",
+      });
+      setSuccess("Profile created.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to create attendee");
+    } finally {
+      setIsCreating(false);
+    }
+  };
+
   const handleDelete = async () => {
     if (!selected) return;
     const confirmed = window.confirm(
@@ -208,9 +274,145 @@ export default function AdminPage() {
                   )}
                 >
                   <p className="text-sm font-semibold text-gray-900">{attendee.name}</p>
-                  <p className="text-xs text-gray-500">{attendee.email}</p>
+                  <p className="text-xs text-gray-500">
+                    {attendee.email || "Email pending"}
+                  </p>
                 </button>
               ))}
+            </div>
+
+            <div className="mt-6 border-t border-gray-200 pt-4">
+              <button
+                type="button"
+                onClick={() => setIsAddOpen((prev) => !prev)}
+                className="w-full inline-flex items-center justify-between px-3 py-2 rounded-xl border border-gray-200 text-sm font-semibold text-gray-900 hover:border-badger-red/50 transition-all duration-200"
+              >
+                <span>Add attendee</span>
+                {isAddOpen ? (
+                  <ChevronUp className="w-4 h-4" />
+                ) : (
+                  <ChevronDown className="w-4 h-4" />
+                )}
+              </button>
+
+              {isAddOpen && (
+                {isCreating && (
+                  <p className="text-xs text-gray-500 text-center">
+                    Generating AI summary and tags...
+                  </p>
+                )}
+                <form onSubmit={handleCreateAttendee} className="space-y-3 mt-3">
+                <input
+                  value={newAttendee.name}
+                  onChange={(e) => setNewAttendee({ ...newAttendee, name: e.target.value })}
+                  placeholder="Full name"
+                  className={cn(
+                    "w-full px-3 py-2 rounded-xl",
+                    "bg-gray-50 border border-gray-300",
+                    "text-gray-900 placeholder:text-gray-400",
+                    "focus:outline-none focus:ring-2 focus:ring-badger-red focus:border-transparent",
+                    "transition-all duration-200"
+                  )}
+                />
+                <input
+                  value={newAttendee.email}
+                  onChange={(e) => setNewAttendee({ ...newAttendee, email: e.target.value })}
+                  placeholder="Email (optional)"
+                  type="email"
+                  className={cn(
+                    "w-full px-3 py-2 rounded-xl",
+                    "bg-gray-50 border border-gray-300",
+                    "text-gray-900 placeholder:text-gray-400",
+                    "focus:outline-none focus:ring-2 focus:ring-badger-red focus:border-transparent",
+                    "transition-all duration-200"
+                  )}
+                />
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <input
+                    value={newAttendee.job_title}
+                    onChange={(e) =>
+                      setNewAttendee({ ...newAttendee, job_title: e.target.value })
+                    }
+                    placeholder="Job title"
+                    className={cn(
+                      "w-full px-3 py-2 rounded-xl",
+                      "bg-gray-50 border border-gray-300",
+                      "text-gray-900 placeholder:text-gray-400",
+                      "focus:outline-none focus:ring-2 focus:ring-badger-red focus:border-transparent",
+                      "transition-all duration-200"
+                    )}
+                  />
+                  <input
+                    value={newAttendee.company}
+                    onChange={(e) => setNewAttendee({ ...newAttendee, company: e.target.value })}
+                    placeholder="Company"
+                    className={cn(
+                      "w-full px-3 py-2 rounded-xl",
+                      "bg-gray-50 border border-gray-300",
+                      "text-gray-900 placeholder:text-gray-400",
+                      "focus:outline-none focus:ring-2 focus:ring-badger-red focus:border-transparent",
+                      "transition-all duration-200"
+                    )}
+                  />
+                </div>
+                <input
+                  value={newAttendee.linkedin_url}
+                  onChange={(e) =>
+                    setNewAttendee({ ...newAttendee, linkedin_url: e.target.value })
+                  }
+                  placeholder="LinkedIn URL (optional)"
+                  className={cn(
+                    "w-full px-3 py-2 rounded-xl",
+                    "bg-gray-50 border border-gray-300",
+                    "text-gray-900 placeholder:text-gray-400",
+                    "focus:outline-none focus:ring-2 focus:ring-badger-red focus:border-transparent",
+                    "transition-all duration-200"
+                  )}
+                />
+                <textarea
+                  value={newAttendee.about}
+                  onChange={(e) => setNewAttendee({ ...newAttendee, about: e.target.value })}
+                  placeholder="About (optional)"
+                  rows={3}
+                  className={cn(
+                    "w-full px-3 py-2 rounded-xl",
+                    "bg-gray-50 border border-gray-300",
+                    "text-gray-900 placeholder:text-gray-400",
+                    "focus:outline-none focus:ring-2 focus:ring-badger-red focus:border-transparent",
+                    "transition-all duration-200",
+                    "resize-none"
+                  )}
+                />
+                <input
+                  value={newAttendee.industry_tags}
+                  onChange={(e) =>
+                    setNewAttendee({ ...newAttendee, industry_tags: e.target.value })
+                  }
+                  placeholder="Industry tags (comma separated)"
+                  className={cn(
+                    "w-full px-3 py-2 rounded-xl",
+                    "bg-gray-50 border border-gray-300",
+                    "text-gray-900 placeholder:text-gray-400",
+                    "focus:outline-none focus:ring-2 focus:ring-badger-red focus:border-transparent",
+                    "transition-all duration-200"
+                  )}
+                />
+                <button
+                  type="submit"
+                  disabled={isCreating}
+                  className="w-full inline-flex items-center justify-center px-4 py-2.5 rounded-full bg-badger-red text-white font-semibold hover:bg-badger-darkred transition-all duration-200"
+                >
+                  {isCreating ? (
+                    <span className="inline-flex items-center">
+                      <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                      Creating...
+                    </span>
+                  ) : (
+                    "Create Profile"
+                  )}
+                </button>
+                </form>
+              )}
             </div>
           </div>
 
@@ -237,7 +439,7 @@ export default function AdminPage() {
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">Email</label>
                     <input
-                      value={selected.email}
+                      value={selected.email ?? ""}
                       onChange={(e) => updateSelected({ email: e.target.value })}
                       className={cn(
                         "w-full px-4 py-3 rounded-xl",

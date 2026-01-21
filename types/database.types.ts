@@ -8,7 +8,7 @@ export interface Database {
           id: string
           user_id: string | null
           name: string
-          email: string
+          email: string | null
           linkedin_url: string | null
           job_title: string | null
           company: string | null
@@ -22,7 +22,7 @@ export interface Database {
           id?: string
           user_id?: string | null
           name: string
-          email: string
+          email?: string | null
           linkedin_url?: string | null
           job_title?: string | null
           company?: string | null
@@ -36,7 +36,7 @@ export interface Database {
           id?: string
           user_id?: string | null
           name?: string
-          email?: string
+          email?: string | null
           linkedin_url?: string | null
           job_title?: string | null
           company?: string | null

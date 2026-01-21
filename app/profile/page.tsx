@@ -68,7 +68,7 @@ export default function ProfilePage() {
       }
 
       // Update auth email if changed
-      if (authData.user.email && attendee.email !== authData.user.email) {
+      if (authData.user.email && attendee.email && attendee.email !== authData.user.email) {
         const { error: updateEmailError } = await supabase.auth.updateUser({
           email: attendee.email,
         });
@@ -87,7 +87,7 @@ export default function ProfilePage() {
         .from("attendees")
         .update({
           name: attendee.name,
-          email: attendee.email,
+          email: attendee.email || null,
           job_title: attendee.job_title,
           company: attendee.company,
           linkedin_url: attendee.linkedin_url,
@@ -235,7 +235,7 @@ export default function ProfilePage() {
                 <label className="block text-sm font-medium text-gray-700 mb-2">Email</label>
                 <input
                   type="email"
-                  value={attendee.email}
+                  value={attendee.email ?? ""}
                   onChange={(e) => setAttendee({ ...attendee, email: e.target.value })}
                   className={cn(
                     "w-full px-4 py-3 rounded-xl",

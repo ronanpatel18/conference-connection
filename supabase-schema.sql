@@ -9,7 +9,7 @@ CREATE TABLE IF NOT EXISTS public.attendees (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
   name TEXT NOT NULL,
-  email TEXT NOT NULL UNIQUE,
+  email TEXT UNIQUE,
   linkedin_url TEXT,
   job_title TEXT,
   company TEXT,
