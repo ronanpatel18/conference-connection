@@ -9,6 +9,9 @@ const inter = Inter({ subsets: ["latin"] });
 export const metadata: Metadata = {
   title: "Wisconsin Sports Business Conference - Attendee Network",
   description: "Connect with sports business professionals at the Wisconsin Sports Business Conference. Browse attendee profiles and expand your network.",
+  icons: {
+    icon: "/icon.webp",
+  },
 };
 
 export default function RootLayout({
