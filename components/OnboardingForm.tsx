@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { motion } from "framer-motion";
 import { Sparkles, Loader2, CheckCircle2 } from "lucide-react";
 import { createClient } from "@/utils/supabase/client";
@@ -335,6 +336,12 @@ export default function OnboardingForm() {
                       "disabled:opacity-50 disabled:cursor-not-allowed"
                     )}
                   />
+                  <p className="mt-3 text-center text-sm text-gray-600">
+                    Already created your profile?{" "}
+                    <Link href="/login" className="text-badger-red hover:underline font-medium">
+                      Log in
+                    </Link>
+                  </p>
                 </div>
               )}
 

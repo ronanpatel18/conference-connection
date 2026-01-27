@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { Sparkles, Linkedin, Briefcase, Building2 } from "lucide-react";
 import type { Attendee } from "@/types/database.types";
@@ -18,7 +18,17 @@ interface AttendeeCardProps {
 
 export default function AttendeeCard({ attendee, index }: AttendeeCardProps) {
   const [isFlipped, setIsFlipped] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
   const theme = getThemeForAttendee(attendee);
+
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.matchMedia("(max-width: 768px)").matches || "ontouchstart" in window);
+    };
+    checkMobile();
+    window.addEventListener("resize", checkMobile);
+    return () => window.removeEventListener("resize", checkMobile);
+  }, []);
   const displayTags = (attendee.industry_tags || [])
     .filter((tag): tag is string => typeof tag === "string" && tag.trim().length > 0)
     .filter((tag) => isValidSubcategory(tag))
@@ -26,26 +36,26 @@ export default function AttendeeCard({ attendee, index }: AttendeeCardProps) {
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 20 }}
+      initial={{ opacity: 0, y: 15 }}
       animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, scale: 0.9 }}
-      transition={{ duration: 0.4, delay: index * 0.05 }}
+      exit={{ opacity: 0, scale: 0.95 }}
+      transition={{ duration: 0.25, delay: index * 0.03 }}
       className="h-full"
       style={{ perspective: "1000px" }}
     >
       <motion.div
         className="relative w-full h-full min-h-[280px] cursor-pointer"
-        onHoverStart={() => setIsFlipped(true)}
-        onHoverEnd={() => setIsFlipped(false)}
+        onHoverStart={() => !isMobile && setIsFlipped(true)}
+        onHoverEnd={() => !isMobile && setIsFlipped(false)}
         onClick={() => setIsFlipped((prev) => !prev)}
         whileHover={{ scale: 1.02 }}
-        transition={{ duration: 0.3 }}
+        transition={{ duration: 0.15 }}
       >
         {/* Card container with flip animation */}
         <motion.div
           className="relative w-full h-full"
           animate={{ rotateY: isFlipped ? 180 : 0 }}
-          transition={{ duration: 0.6, type: "spring", stiffness: 100 }}
+          transition={{ duration: 0.4, type: "spring", stiffness: 200, damping: 25 }}
           style={{ transformStyle: "preserve-3d" }}
         >
           {/* FRONT of card */}
@@ -118,11 +128,11 @@ export default function AttendeeCard({ attendee, index }: AttendeeCardProps) {
               </div>
             )}
 
-            {/* Hover indicator */}
+            {/* Hover/Tap indicator */}
             <div className="absolute bottom-4 left-6 right-6 text-center">
               <p className="text-xs text-gray-500 flex items-center justify-center space-x-1">
                 <Sparkles className="w-3 h-3" />
-                <span>Hover to reveal AI insights</span>
+                <span>{isMobile ? "Tap to reveal AI insights" : "Hover to reveal AI insights"}</span>
               </p>
             </div>
           </div>
@@ -134,12 +144,14 @@ export default function AttendeeCard({ attendee, index }: AttendeeCardProps) {
               "bg-white",
               "border-2",
               "shadow-xl",
-              "overflow-y-auto"
+              "overflow-y-auto scroll-smooth",
+              "scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-transparent"
             )}
             style={{
               backfaceVisibility: "hidden",
               transform: "rotateY(180deg)",
               borderColor: theme.main,
+              WebkitOverflowScrolling: "touch",
             }}
           >
             {/* AI Summary header */}
@@ -156,10 +168,9 @@ export default function AttendeeCard({ attendee, index }: AttendeeCardProps) {
                 {attendee.ai_summary.split("\n").map((bullet, i) => (
                   <div key={i} className="flex items-start space-x-2">
                     <div
-                      className="w-1.5 h-1.5 rounded-full mt-2 flex-shrink-0"
-                      style={{ backgroundColor: theme.tint }}
+                      className="w-1.5 h-1.5 rounded-full mt-2 flex-shrink-0 bg-black"
                     />
-                    <p className="text-sm text-gray-700 leading-relaxed font-medium">
+                    <p className="text-sm text-gray-900 leading-relaxed font-medium">
                       {bullet}
                     </p>
                   </div>

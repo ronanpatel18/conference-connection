@@ -49,7 +49,7 @@ export default function Footer() {
               Wisconsin Sports Business Conference
             </h3>
             <p className="text-gray-600 mb-6 max-w-md">
-              Connecting sports business professionals across Wisconsin. Network with industry leaders, 
+              Connecting sports business professionals across the country. Network with industry leaders, 
               discover opportunities, and grow your career in sports.
             </p>
             {/* Social Links */}

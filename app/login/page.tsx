@@ -39,8 +39,8 @@ export default function LoginPage() {
   };
 
   return (
-    <main className="min-h-screen pt-24 pb-16 px-4 bg-white">
-      <div className="container mx-auto max-w-md">
+    <main className="min-h-screen flex items-center justify-center px-4 py-12 bg-white">
+      <div className="w-full max-w-md">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}

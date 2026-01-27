@@ -65,8 +65,8 @@ export default function HomePage() {
               transition={{ duration: 0.6, delay: 0.4 }}
               className="text-gray-600 text-lg md:text-xl max-w-3xl mx-auto mb-10"
             >
-              Connect with sports business professionals, industry leaders, and innovators. 
-              Explore career opportunities and expand your network in Wisconsin&apos;s sports industry.
+              Connect with sports business professionals, industry leaders, and innovators.
+              Expand your network at WSBC2.
             </motion.p>
 
             {/* Conference Info Cards */}
@@ -84,7 +84,7 @@ export default function HomePage() {
               <div className="bg-white border border-gray-200 rounded-xl p-4 text-center shadow-sm hover:shadow-md transition-shadow">
                 <MapPin className="w-6 h-6 text-badger-red mx-auto mb-2" />
                 <p className="text-sm text-gray-500 mb-1">Location</p>
-                <p className="text-gray-900 font-medium">Wisconsin</p>
+                <p className="text-gray-900 font-medium">Madison, Wisconsin</p>
               </div>
               <div className="bg-white border border-gray-200 rounded-xl p-4 text-center shadow-sm hover:shadow-md transition-shadow">
                 <Users className="w-6 h-6 text-badger-red mx-auto mb-2" />
