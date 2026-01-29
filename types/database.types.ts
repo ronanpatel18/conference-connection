@@ -15,6 +15,8 @@ export interface Database {
           about: string | null
           ai_summary: string | null
           industry_tags: string[]
+          sort_order: number
+          is_pinned: boolean
           created_at: string
           updated_at: string
         }
@@ -29,6 +31,8 @@ export interface Database {
           about?: string | null
           ai_summary?: string | null
           industry_tags?: string[]
+          sort_order?: number
+          is_pinned?: boolean
           created_at?: string
           updated_at?: string
         }
@@ -43,6 +47,8 @@ export interface Database {
           about?: string | null
           ai_summary?: string | null
           industry_tags?: string[]
+          sort_order?: number
+          is_pinned?: boolean
           created_at?: string
           updated_at?: string
         }

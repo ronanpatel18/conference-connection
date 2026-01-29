@@ -205,19 +205,12 @@ export default function Header() {
                   {item.label}
                 </Link>
               ))}
-              {!isAuthed && (
-                <Link href="/onboarding" className="w-full">
-                  <button className="w-full px-6 py-2 rounded-full bg-badger-red text-white font-semibold hover:bg-badger-darkred transition-colors">
-                    Register
-                  </button>
-                </Link>
-              )}
               {isAuthed ? (
-                <div className="space-y-2">
+                <div className="space-y-3 pt-2">
                   {isAdmin && (
                     <Link
                       href="/admin"
-                      className="w-full flex items-center justify-center px-6 py-2 rounded-full border border-gray-300 text-gray-700 font-semibold"
+                      className="w-full flex items-center justify-center px-6 py-3 rounded-full border border-gray-300 text-gray-700 font-semibold"
                       onClick={() => setMobileMenuOpen(false)}
                     >
                       <User className="w-4 h-4 mr-2" />
@@ -226,7 +219,7 @@ export default function Header() {
                   )}
                   <Link
                     href="/profile"
-                    className="w-full flex items-center justify-center px-6 py-2 rounded-full border border-gray-300 text-gray-700 font-semibold"
+                    className="w-full flex items-center justify-center px-6 py-3 rounded-full border border-gray-300 text-gray-700 font-semibold"
                     onClick={() => setMobileMenuOpen(false)}
                   >
                     <User className="w-4 h-4 mr-2" />
@@ -234,18 +227,25 @@ export default function Header() {
                   </Link>
                   <button
                     onClick={handleLogout}
-                    className="w-full flex items-center justify-center px-6 py-2 rounded-full border border-red-200 text-red-600 font-semibold"
+                    className="w-full flex items-center justify-center px-6 py-3 rounded-full border border-red-200 text-red-600 font-semibold"
                   >
                     <LogOut className="w-4 h-4 mr-2" />
                     Log Out
                   </button>
                 </div>
               ) : (
-                <Link href="/login" className="w-full">
-                  <button className="w-full px-6 py-2 rounded-full border border-gray-300 text-gray-700 font-semibold hover:text-badger-red hover:border-badger-red transition-colors">
-                    Login
-                  </button>
-                </Link>
+                <div className="grid grid-cols-2 gap-3 pt-2">
+                  <Link href="/onboarding" className="w-full" onClick={() => setMobileMenuOpen(false)}>
+                    <button className="w-full px-4 py-3 rounded-full bg-badger-red text-white font-semibold hover:bg-badger-darkred transition-colors">
+                      Register
+                    </button>
+                  </Link>
+                  <Link href="/login" className="w-full" onClick={() => setMobileMenuOpen(false)}>
+                    <button className="w-full px-4 py-3 rounded-full border border-gray-300 text-gray-700 font-semibold hover:text-badger-red hover:border-badger-red transition-colors">
+                      Login
+                    </button>
+                  </Link>
+                </div>
               )}
             </div>
           </motion.div>

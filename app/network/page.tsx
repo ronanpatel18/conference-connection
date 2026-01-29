@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
-import { Loader2, Users, Search, X } from "lucide-react";
+import { Loader2, Users, Search, X, ChevronDown } from "lucide-react";
 import { createClient } from "@/utils/supabase/client";
 import type { Attendee } from "@/types/database.types";
 import AttendeeCard from "@/components/AttendeeCard";
@@ -18,6 +18,7 @@ export default function NetworkPage() {
   const [error, setError] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedIndustry, setSelectedIndustry] = useState<string | null>(null);
+  const [sortOption, setSortOption] = useState<"default" | "name" | "recent">("default");
 
   const loadAttendees = useCallback(async () => {
     try {
@@ -30,6 +31,8 @@ export default function NetworkPage() {
       const { data, error } = await supabase
         .from("attendees")
         .select("*")
+        .order("is_pinned", { ascending: false, nullsFirst: false })
+        .order("sort_order", { ascending: true })
         .order("created_at", { ascending: false });
 
       if (error) throw error;
@@ -66,8 +69,18 @@ export default function NetworkPage() {
       );
     }
 
+    // Apply user-selected sort option
+    if (sortOption === "name") {
+      filtered.sort((a, b) => a.name.localeCompare(b.name));
+    } else if (sortOption === "recent") {
+      filtered.sort((a, b) =>
+        new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+      );
+    }
+    // "default" keeps the admin-defined order (pinned first, then sort_order)
+
     setFilteredAttendees(filtered);
-  }, [attendees, searchQuery, selectedIndustry]);
+  }, [attendees, searchQuery, selectedIndustry, sortOption]);
 
   useEffect(() => {
     loadAttendees();
@@ -155,6 +168,28 @@ export default function NetworkPage() {
                 <X className="w-5 h-5" />
               </button>
             )}
+          </div>
+
+          {/* Sort dropdown */}
+          <div className="flex justify-center mb-4">
+            <div className="relative">
+              <select
+                value={sortOption}
+                onChange={(e) => setSortOption(e.target.value as "default" | "name" | "recent")}
+                className={cn(
+                  "appearance-none pl-4 pr-10 py-2 rounded-full",
+                  "bg-gray-50 border border-gray-300",
+                  "text-gray-700 text-sm font-medium",
+                  "focus:outline-none focus:ring-2 focus:ring-badger-red focus:border-transparent",
+                  "cursor-pointer transition-all duration-200"
+                )}
+              >
+                <option value="default">Featured Order</option>
+                <option value="name">Sort by Name (A-Z)</option>
+                <option value="recent">Recently Added</option>
+              </select>
+              <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500 pointer-events-none" />
+            </div>
           </div>
 
           {/* Industry filter tags */}

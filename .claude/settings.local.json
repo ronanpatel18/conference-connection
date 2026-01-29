@@ -2,7 +2,8 @@
   "permissions": {
     "allow": [
       "Bash(move:*)",
-      "Bash(copy \"c:\\\\Users\\\\patel\\\\Downloads\\\\conference-connection\\\\app\\\\icon.webp\" \"c:\\\\Users\\\\patel\\\\Downloads\\\\conference-connection\\\\public\\\\icon.webp\")"
+      "Bash(copy \"c:\\\\Users\\\\patel\\\\Downloads\\\\conference-connection\\\\app\\\\icon.webp\" \"c:\\\\Users\\\\patel\\\\Downloads\\\\conference-connection\\\\public\\\\icon.webp\")",
+      "Bash(npm run build:*)"
     ]
   }
 }

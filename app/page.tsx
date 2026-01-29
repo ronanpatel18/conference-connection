@@ -97,7 +97,7 @@ export default function HomePage() {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6, delay: 0.6 }}
-              className="flex justify-center"
+              className="flex flex-col items-center gap-4"
             >
               <Link href={isAuthed ? "/network" : "/onboarding"}>
                 <motion.button
@@ -109,6 +109,18 @@ export default function HomePage() {
                   <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
                 </motion.button>
               </Link>
+              {!isAuthed && (
+                <Link href="/login">
+                  <motion.button
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                    className="group px-8 py-4 rounded-full border border-gray-300 text-gray-700 font-semibold text-lg hover:text-badger-red hover:border-badger-red transition-all duration-200 flex items-center space-x-2"
+                  >
+                    <span>Already Joined? Log In</span>
+                    <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+                  </motion.button>
+                </Link>
+              )}
             </motion.div>
           </motion.div>
         </div>

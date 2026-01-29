@@ -42,6 +42,8 @@ export async function GET() {
   const { data, error } = await admin
     .from("attendees")
     .select("*")
+    .order("is_pinned", { ascending: false, nullsFirst: false })
+    .order("sort_order", { ascending: true })
     .order("created_at", { ascending: false });
 
   if (error) {

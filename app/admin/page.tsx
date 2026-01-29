@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ChevronDown, ChevronUp, Loader2, RefreshCcw, Save } from "lucide-react";
+import { ChevronDown, ChevronUp, Loader2, RefreshCcw, Save, Pin, PinOff, ArrowUp, ArrowDown } from "lucide-react";
 import { AlignJustify, Search, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { Attendee } from "@/types/database.types";
@@ -32,6 +32,8 @@ export default function AdminPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [isMultiSelect, setIsMultiSelect] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [isSavingOrder, setIsSavingOrder] = useState(false);
+  const [orderChanged, setOrderChanged] = useState(false);
 
   useEffect(() => {
     const load = async () => {
@@ -314,6 +316,77 @@ export default function AdminPage() {
     }
   };
 
+  const togglePin = (id: string) => {
+    setAttendees((prev) => {
+      const updated = prev.map((a) =>
+        a.id === id ? { ...a, is_pinned: !a.is_pinned } : a
+      );
+      // Re-sort: pinned first, then by sort_order
+      return updated.sort((a, b) => {
+        if (a.is_pinned !== b.is_pinned) return a.is_pinned ? -1 : 1;
+        return (a.sort_order ?? 0) - (b.sort_order ?? 0);
+      });
+    });
+    setOrderChanged(true);
+  };
+
+  const moveAttendee = (id: string, direction: "up" | "down") => {
+    setAttendees((prev) => {
+      const index = prev.findIndex((a) => a.id === id);
+      if (index === -1) return prev;
+
+      const newIndex = direction === "up" ? index - 1 : index + 1;
+      if (newIndex < 0 || newIndex >= prev.length) return prev;
+
+      // Don't allow moving unpinned items above pinned items
+      const current = prev[index];
+      const target = prev[newIndex];
+      if (!current.is_pinned && target.is_pinned && direction === "up") return prev;
+      if (current.is_pinned && !target.is_pinned && direction === "down") return prev;
+
+      const updated = [...prev];
+      [updated[index], updated[newIndex]] = [updated[newIndex], updated[index]];
+      return updated;
+    });
+    setOrderChanged(true);
+  };
+
+  const handleSaveOrder = async () => {
+    setError("");
+    setSuccess("");
+    setIsSavingOrder(true);
+
+    try {
+      const items = attendees.map((a, index) => ({
+        id: a.id,
+        sort_order: index,
+        is_pinned: a.is_pinned ?? false,
+      }));
+
+      const response = await fetch("/api/admin/attendees/reorder", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ items }),
+      });
+
+      const data = await response.json();
+      if (!response.ok || !data.success) {
+        throw new Error(data.error || "Failed to save order");
+      }
+
+      // Update local state with new sort_order values
+      setAttendees((prev) =>
+        prev.map((a, index) => ({ ...a, sort_order: index }))
+      );
+      setOrderChanged(false);
+      setSuccess("Order saved.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to save order");
+    } finally {
+      setIsSavingOrder(false);
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-white">
@@ -512,42 +585,116 @@ export default function AdminPage() {
               </div>
             )}
 
+            {/* Save Order Button */}
+            {orderChanged && (
+              <div className="mb-3">
+                <button
+                  type="button"
+                  onClick={handleSaveOrder}
+                  disabled={isSavingOrder}
+                  className="w-full inline-flex items-center justify-center px-4 py-2 rounded-full bg-green-600 text-white font-semibold hover:bg-green-700 transition-all duration-200"
+                >
+                  {isSavingOrder ? (
+                    <span className="inline-flex items-center">
+                      <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                      Saving order...
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center">
+                      <Save className="w-4 h-4 mr-2" />
+                      Save Order
+                    </span>
+                  )}
+                </button>
+              </div>
+            )}
+
             <div className="space-y-2 max-h-[520px] overflow-y-auto">
-              {filteredAttendees.map((attendee) => {
+              {filteredAttendees.map((attendee, index) => {
                 const isSelected = selectedIds.has(attendee.id);
+                const isPinned = attendee.is_pinned ?? false;
                 return (
-                  <button
+                  <div
                     key={attendee.id}
-                    type="button"
-                    onClick={() =>
-                      isMultiSelect ? toggleSelectedId(attendee.id) : setSelectedId(attendee.id)
-                    }
                     className={cn(
-                      "w-full text-left px-3 py-2 rounded-xl border transition-colors",
+                      "flex items-center gap-2 px-2 py-2 rounded-xl border transition-colors",
                       isMultiSelect && isSelected
                         ? "border-badger-red bg-badger-red/10"
                         : attendee.id === selectedId
                         ? "border-badger-red bg-badger-red/10"
+                        : isPinned
+                        ? "border-amber-400 bg-amber-50"
                         : "border-gray-200 hover:border-badger-red/50"
                     )}
                   >
-                    <div className="flex items-start justify-between">
-                      <div>
-                        <p className="text-sm font-semibold text-gray-900">{attendee.name}</p>
-                        <p className="text-xs text-gray-500">
-                          {attendee.email || "Email pending"}
-                        </p>
-                      </div>
-                      {isMultiSelect && (
-                        <input
-                          type="checkbox"
-                          checked={isSelected}
-                          onChange={() => toggleSelectedId(attendee.id)}
-                          className="mt-1 h-4 w-4 rounded border-gray-300 text-badger-red focus:ring-badger-red"
-                        />
-                      )}
+                    {/* Reorder controls */}
+                    <div className="flex flex-col gap-0.5">
+                      <button
+                        type="button"
+                        onClick={() => moveAttendee(attendee.id, "up")}
+                        disabled={index === 0}
+                        className="p-0.5 text-gray-400 hover:text-gray-600 disabled:opacity-30 disabled:cursor-not-allowed"
+                        title="Move up"
+                      >
+                        <ArrowUp className="w-3 h-3" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => moveAttendee(attendee.id, "down")}
+                        disabled={index === filteredAttendees.length - 1}
+                        className="p-0.5 text-gray-400 hover:text-gray-600 disabled:opacity-30 disabled:cursor-not-allowed"
+                        title="Move down"
+                      >
+                        <ArrowDown className="w-3 h-3" />
+                      </button>
                     </div>
-                  </button>
+
+                    {/* Pin button */}
+                    <button
+                      type="button"
+                      onClick={() => togglePin(attendee.id)}
+                      className={cn(
+                        "p-1.5 rounded-lg transition-colors",
+                        isPinned
+                          ? "text-amber-600 bg-amber-100 hover:bg-amber-200"
+                          : "text-gray-400 hover:text-amber-600 hover:bg-amber-50"
+                      )}
+                      title={isPinned ? "Unpin" : "Pin to top"}
+                    >
+                      {isPinned ? <Pin className="w-4 h-4" /> : <PinOff className="w-4 h-4" />}
+                    </button>
+
+                    {/* Main attendee button */}
+                    <button
+                      type="button"
+                      onClick={() =>
+                        isMultiSelect ? toggleSelectedId(attendee.id) : setSelectedId(attendee.id)
+                      }
+                      className="flex-1 text-left"
+                    >
+                      <div className="flex items-start justify-between">
+                        <div>
+                          <p className="text-sm font-semibold text-gray-900 flex items-center gap-1">
+                            {attendee.name}
+                            {isPinned && (
+                              <span className="text-xs text-amber-600 font-normal">(pinned)</span>
+                            )}
+                          </p>
+                          <p className="text-xs text-gray-500">
+                            {attendee.email || "Email pending"}
+                          </p>
+                        </div>
+                        {isMultiSelect && (
+                          <input
+                            type="checkbox"
+                            checked={isSelected}
+                            onChange={() => toggleSelectedId(attendee.id)}
+                            className="mt-1 h-4 w-4 rounded border-gray-300 text-badger-red focus:ring-badger-red"
+                          />
+                        )}
+                      </div>
+                    </button>
+                  </div>
                 );
               })}
             </div>

@@ -16,6 +16,8 @@ CREATE TABLE IF NOT EXISTS public.attendees (
   about TEXT,
   ai_summary TEXT,
   industry_tags TEXT[] DEFAULT '{}',
+  sort_order INTEGER DEFAULT 0,
+  is_pinned BOOLEAN DEFAULT FALSE,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );
@@ -34,6 +36,12 @@ CREATE UNIQUE INDEX IF NOT EXISTS attendees_user_id_unique ON public.attendees(u
 
 -- Create index on industry_tags for filtering
 CREATE INDEX IF NOT EXISTS attendees_industry_tags_idx ON public.attendees USING GIN(industry_tags);
+
+-- Create index on sort_order for admin sorting
+CREATE INDEX IF NOT EXISTS attendees_sort_order_idx ON public.attendees(sort_order ASC);
+
+-- Create index on is_pinned for pinned attendees
+CREATE INDEX IF NOT EXISTS attendees_is_pinned_idx ON public.attendees(is_pinned DESC);
 
 -- =============================================
 -- ROW LEVEL SECURITY (RLS) POLICIES
@@ -142,3 +150,12 @@ CREATE TRIGGER delete_auth_user_on_attendee_delete
 -- INSERT INTO public.attendees (name, email, linkedin_url, job_title, company, industry_tags) VALUES
 -- ('John Doe', 'john@example.com', 'https://linkedin.com/in/johndoe', 'Software Engineer', 'Tech Corp', ARRAY['Technology', 'Software']),
 -- ('Jane Smith', 'jane@example.com', 'https://linkedin.com/in/janesmith', 'Product Manager', 'Innovation Inc', ARRAY['Product', 'Management']);
+
+-- =============================================
+-- MIGRATION: Add sort_order and is_pinned columns for admin sorting
+-- =============================================
+-- Run this if your attendees table already exists and you need sorting features.
+-- ALTER TABLE public.attendees ADD COLUMN IF NOT EXISTS sort_order INTEGER DEFAULT 0;
+-- ALTER TABLE public.attendees ADD COLUMN IF NOT EXISTS is_pinned BOOLEAN DEFAULT FALSE;
+-- CREATE INDEX IF NOT EXISTS attendees_sort_order_idx ON public.attendees(sort_order ASC);
+-- CREATE INDEX IF NOT EXISTS attendees_is_pinned_idx ON public.attendees(is_pinned DESC);

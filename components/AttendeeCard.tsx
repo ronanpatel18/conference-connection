@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { motion } from "framer-motion";
 import { Sparkles, Linkedin, Briefcase, Building2 } from "lucide-react";
 import type { Attendee } from "@/types/database.types";
@@ -21,6 +21,14 @@ export default function AttendeeCard({ attendee, index }: AttendeeCardProps) {
   const [isMobile, setIsMobile] = useState(false);
   const theme = getThemeForAttendee(attendee);
 
+  // Track if we're currently scrolling to prevent flip on scroll end
+  const touchDataRef = useRef<{
+    startX: number;
+    startY: number;
+    startTime: number;
+    didScroll: boolean;
+  } | null>(null);
+
   useEffect(() => {
     const checkMobile = () => {
       setIsMobile(window.matchMedia("(max-width: 768px)").matches || "ontouchstart" in window);
@@ -28,6 +36,45 @@ export default function AttendeeCard({ attendee, index }: AttendeeCardProps) {
     checkMobile();
     window.addEventListener("resize", checkMobile);
     return () => window.removeEventListener("resize", checkMobile);
+  }, []);
+
+  const handleTouchStart = useCallback((e: React.TouchEvent) => {
+    const touch = e.touches[0];
+    touchDataRef.current = {
+      startX: touch.clientX,
+      startY: touch.clientY,
+      startTime: Date.now(),
+      didScroll: false,
+    };
+  }, []);
+
+  const handleTouchMove = useCallback(() => {
+    // Mark that scrolling has occurred
+    if (touchDataRef.current) {
+      touchDataRef.current.didScroll = true;
+    }
+  }, []);
+
+  const handleTouchEnd = useCallback((e: React.TouchEvent) => {
+    if (!touchDataRef.current) return;
+
+    const { startX, startY, startTime, didScroll } = touchDataRef.current;
+    const touch = e.changedTouches[0];
+    const deltaX = Math.abs(touch.clientX - startX);
+    const deltaY = Math.abs(touch.clientY - startY);
+    const duration = Date.now() - startTime;
+
+    // Only flip if:
+    // 1. No scroll occurred during the touch
+    // 2. Minimal movement (less than 8px)
+    // 3. Short duration (less than 250ms for a quick tap)
+    const isQuickTap = !didScroll && deltaX < 8 && deltaY < 8 && duration < 250;
+
+    if (isQuickTap) {
+      setIsFlipped((prev) => !prev);
+    }
+
+    touchDataRef.current = null;
   }, []);
   const displayTags = (attendee.industry_tags || [])
     .filter((tag): tag is string => typeof tag === "string" && tag.trim().length > 0)
@@ -45,10 +92,14 @@ export default function AttendeeCard({ attendee, index }: AttendeeCardProps) {
     >
       <motion.div
         className="relative w-full h-full min-h-[280px] cursor-pointer"
+        style={{ touchAction: "pan-y" }}
         onHoverStart={() => !isMobile && setIsFlipped(true)}
         onHoverEnd={() => !isMobile && setIsFlipped(false)}
-        onClick={() => setIsFlipped((prev) => !prev)}
-        whileHover={{ scale: 1.02 }}
+        onClick={() => !isMobile && setIsFlipped((prev) => !prev)}
+        onTouchStart={isMobile ? handleTouchStart : undefined}
+        onTouchMove={isMobile ? handleTouchMove : undefined}
+        onTouchEnd={isMobile ? handleTouchEnd : undefined}
+        whileHover={!isMobile ? { scale: 1.02 } : undefined}
         transition={{ duration: 0.15 }}
       >
         {/* Card container with flip animation */}
@@ -87,9 +138,24 @@ export default function AttendeeCard({ attendee, index }: AttendeeCardProps) {
 
             {/* Name & Title */}
             <div className="mb-4">
-              <h3 className="text-xl font-bold text-gray-900 mb-2 line-clamp-1">
-                {attendee.name}
-              </h3>
+              <div className="flex items-center gap-2 mb-2">
+                <h3 className="text-xl font-bold text-gray-900 line-clamp-1">
+                  {attendee.name}
+                </h3>
+                {attendee.linkedin_url && (
+                  <a
+                    href={attendee.linkedin_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={(e) => e.stopPropagation()}
+                    onTouchEnd={(e) => e.stopPropagation()}
+                    className="flex-shrink-0 text-[#0A66C2]/60 hover:text-[#0A66C2] transition-colors"
+                    aria-label="View LinkedIn profile"
+                  >
+                    <Linkedin className="w-3.5 h-3.5" />
+                  </a>
+                )}
+              </div>
               
               {attendee.job_title && (
                 <div className="flex items-start space-x-2 mb-2">
