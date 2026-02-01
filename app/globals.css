@@ -18,12 +18,21 @@
   .text-balance {
     text-wrap: balance;
   }
-  
+
   .badger-text {
     @apply text-badger-red;
   }
-  
+
   .badger-border {
     @apply border border-badger-red/30;
+  }
+
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
   }
 }

@@ -211,7 +211,7 @@ export default function AttendeeCard({ attendee, index }: AttendeeCardProps) {
               "border-2",
               "shadow-xl",
               "overflow-y-auto scroll-smooth",
-              "scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-transparent"
+              "scrollbar-hide"
             )}
             style={{
               backfaceVisibility: "hidden",

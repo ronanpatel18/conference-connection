@@ -153,7 +153,7 @@ export default function OnboardingForm() {
         throw new Error(claimData.error || "Failed to link profile");
       }
 
-      router.push("/profile");
+      router.push("/profile?from=onboarding");
     } catch (err) {
       console.error("Error:", err);
       setError(err instanceof Error ? err.message : "Something went wrong");
@@ -489,12 +489,15 @@ export default function OnboardingForm() {
                     />
                   </div>
                   <div>
-                    <label
-                      htmlFor="about"
-                      className="block text-sm font-medium text-gray-700 mb-2"
-                    >
-                      About You (optional)
-                    </label>
+                    <div className="flex items-center gap-2 mb-2">
+                      <label
+                        htmlFor="about"
+                        className="block text-sm font-medium text-gray-700"
+                      >
+                        About You (optional)
+                      </label>
+                      <span className="text-xs text-gray-500 italic">Private - not shown publicly</span>
+                    </div>
                     <textarea
                       id="about"
                       value={formData.about}
@@ -515,7 +518,7 @@ export default function OnboardingForm() {
                       )}
                     />
                     <p className="mt-2 text-xs text-gray-500">
-                      This helps AI match your real background and avoid guesses.
+                      This helps AI create a better profile summary. Not required and never shown publicly.
                     </p>
                   </div>
                 </>

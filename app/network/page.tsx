@@ -28,6 +28,12 @@ export default function NetworkPage() {
         router.push("/login");
         return;
       }
+
+      // Check if user is admin
+      const adminCheck = await fetch("/api/admin/me")
+        .then((res) => res.json())
+        .catch(() => ({ isAdmin: false }));
+
       const { data, error } = await supabase
         .from("attendees")
         .select("*")
@@ -37,7 +43,13 @@ export default function NetworkPage() {
 
       if (error) throw error;
 
-      setAttendees(data || []);
+      // Filter out unclaimed profiles (no user_id) for non-admin users
+      let visibleAttendees = data || [];
+      if (!adminCheck?.isAdmin) {
+        visibleAttendees = visibleAttendees.filter((a) => a.user_id !== null);
+      }
+
+      setAttendees(visibleAttendees);
     } catch (err) {
       console.error("Error loading attendees:", err);
       setError(err instanceof Error ? err.message : "Failed to load attendees");

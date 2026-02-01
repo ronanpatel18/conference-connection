@@ -1,15 +1,17 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { motion } from "framer-motion";
-import { Loader2, Save } from "lucide-react";
+import { Loader2, Save, ArrowRight } from "lucide-react";
 import { createClient } from "@/utils/supabase/client";
 import { cn } from "@/lib/utils";
 import type { Attendee } from "@/types/database.types";
 
 export default function ProfilePage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const isFromOnboarding = searchParams.get("from") === "onboarding";
   const [attendee, setAttendee] = useState<Attendee | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -298,11 +300,15 @@ export default function ProfilePage() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">About You</label>
+              <div className="flex items-center gap-2 mb-2">
+                <label className="block text-sm font-medium text-gray-700">About You</label>
+                <span className="text-xs text-gray-500 italic">(Private - not shown publicly)</span>
+              </div>
               <textarea
                 value={attendee.about ?? ""}
                 onChange={(e) => setAttendee({ ...attendee, about: e.target.value })}
                 rows={4}
+                placeholder="Optional: Add details about yourself to help our AI create a better profile summary. After adding, click 'Regenerate' and then 'Save' to update your public profile."
                 className={cn(
                   "w-full px-4 py-3 rounded-xl",
                   "bg-gray-50 border border-gray-300",
@@ -391,23 +397,38 @@ export default function ProfilePage() {
             {error && <p className="text-sm text-red-600">{error}</p>}
             {success && <p className="text-sm text-green-600">{success}</p>}
 
-            <button
-              type="submit"
-              disabled={isSaving}
-              className="inline-flex items-center px-6 py-3 rounded-full bg-badger-red text-white font-semibold hover:bg-badger-darkred transition-all duration-200 shadow-md"
-            >
-              {isSaving ? (
-                <span className="inline-flex items-center">
-                  <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                  Saving...
-                </span>
-              ) : (
-                <span className="inline-flex items-center">
-                  <Save className="w-4 h-4 mr-2" />
-                  Save Changes
-                </span>
+            <div className="flex items-center justify-between">
+              <button
+                type="submit"
+                disabled={isSaving}
+                className="inline-flex items-center px-6 py-3 rounded-full bg-badger-red text-white font-semibold hover:bg-badger-darkred transition-all duration-200 shadow-md"
+              >
+                {isSaving ? (
+                  <span className="inline-flex items-center">
+                    <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                    Saving...
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center">
+                    <Save className="w-4 h-4 mr-2" />
+                    Save Changes
+                  </span>
+                )}
+              </button>
+
+              {isFromOnboarding && (
+                <button
+                  type="button"
+                  onClick={() => router.push("/network")}
+                  className="inline-flex items-center px-6 py-3 rounded-full bg-badger-red text-white font-semibold hover:bg-badger-darkred transition-all duration-200 shadow-md"
+                >
+                  <span className="inline-flex items-center">
+                    Continue
+                    <ArrowRight className="w-4 h-4 ml-2" />
+                  </span>
+                </button>
               )}
-            </button>
+            </div>
           </form>
 
           <div className="mt-10 border-t border-gray-200 pt-8">

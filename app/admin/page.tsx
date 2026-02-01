@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ChevronDown, ChevronUp, Loader2, RefreshCcw, Save, Pin, PinOff, ArrowUp, ArrowDown } from "lucide-react";
+import { ChevronDown, ChevronUp, Loader2, RefreshCcw, Save, Pin, PinOff, ArrowUp, ArrowDown, Linkedin } from "lucide-react";
 import { AlignJustify, Search, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { Attendee } from "@/types/database.types";
@@ -34,6 +34,8 @@ export default function AdminPage() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [isSavingOrder, setIsSavingOrder] = useState(false);
   const [orderChanged, setOrderChanged] = useState(false);
+  const [isLookingUpLinkedIn, setIsLookingUpLinkedIn] = useState(false);
+  const [isLookingUpNewLinkedIn, setIsLookingUpNewLinkedIn] = useState(false);
 
   useEffect(() => {
     const load = async () => {
@@ -387,6 +389,85 @@ export default function AdminPage() {
     }
   };
 
+  const handleLookupLinkedIn = async () => {
+    if (!selected) return;
+    if (!selected.name) {
+      setError("Name is required to lookup LinkedIn");
+      return;
+    }
+
+    setError("");
+    setSuccess("");
+    setIsLookingUpLinkedIn(true);
+
+    try {
+      const response = await fetch("/api/lookup-linkedin", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: selected.name,
+          job_title: selected.job_title || undefined,
+          company: selected.company || undefined,
+        }),
+      });
+
+      const data = await response.json();
+      if (!response.ok || !data.success) {
+        throw new Error(data.error || "Failed to lookup LinkedIn");
+      }
+
+      if (data.data?.linkedin_url) {
+        updateSelected({ linkedin_url: data.data.linkedin_url });
+        setSuccess(`LinkedIn found: ${data.data.title || data.data.linkedin_url}. Save to apply.`);
+      } else {
+        setError("No LinkedIn profile found. Try adding more details.");
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to lookup LinkedIn");
+    } finally {
+      setIsLookingUpLinkedIn(false);
+    }
+  };
+
+  const handleLookupNewLinkedIn = async () => {
+    if (!newAttendee.name.trim()) {
+      setError("Name is required to lookup LinkedIn");
+      return;
+    }
+
+    setError("");
+    setSuccess("");
+    setIsLookingUpNewLinkedIn(true);
+
+    try {
+      const response = await fetch("/api/lookup-linkedin", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: newAttendee.name.trim(),
+          job_title: newAttendee.job_title.trim() || undefined,
+          company: newAttendee.company.trim() || undefined,
+        }),
+      });
+
+      const data = await response.json();
+      if (!response.ok || !data.success) {
+        throw new Error(data.error || "Failed to lookup LinkedIn");
+      }
+
+      if (data.data?.linkedin_url) {
+        setNewAttendee({ ...newAttendee, linkedin_url: data.data.linkedin_url });
+        setSuccess(`LinkedIn found: ${data.data.title || data.data.linkedin_url}`);
+      } else {
+        setError("No LinkedIn profile found. Try adding job title and company for better results.");
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to lookup LinkedIn");
+    } finally {
+      setIsLookingUpNewLinkedIn(false);
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-white">
@@ -527,19 +608,42 @@ export default function AdminPage() {
                       )}
                     />
                   </div>
-                  <input
-                    value={newAttendee.linkedin_url}
-                    onChange={(e) =>
-                      setNewAttendee({ ...newAttendee, linkedin_url: e.target.value })}
-                    placeholder="LinkedIn URL (optional)"
-                    className={cn(
-                      "w-full px-3 py-2 rounded-xl",
-                      "bg-gray-50 border border-gray-300",
-                      "text-gray-900 placeholder:text-gray-400",
-                      "focus:outline-none focus:ring-2 focus:ring-badger-red focus:border-transparent",
-                      "transition-all duration-200"
-                    )}
-                  />
+                  <div>
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-xs text-gray-500">LinkedIn URL (optional)</span>
+                      <button
+                        type="button"
+                        onClick={handleLookupNewLinkedIn}
+                        disabled={isLookingUpNewLinkedIn || !newAttendee.name.trim()}
+                        className="inline-flex items-center px-2 py-0.5 text-xs font-medium rounded-full bg-[#0A66C2] text-white hover:bg-[#004182] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                      >
+                        {isLookingUpNewLinkedIn ? (
+                          <>
+                            <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+                            Searching...
+                          </>
+                        ) : (
+                          <>
+                            <Linkedin className="w-3 h-3 mr-1" />
+                            Auto-find
+                          </>
+                        )}
+                      </button>
+                    </div>
+                    <input
+                      value={newAttendee.linkedin_url}
+                      onChange={(e) =>
+                        setNewAttendee({ ...newAttendee, linkedin_url: e.target.value })}
+                      placeholder="https://linkedin.com/in/username"
+                      className={cn(
+                        "w-full px-3 py-2 rounded-xl",
+                        "bg-gray-50 border border-gray-300",
+                        "text-gray-900 placeholder:text-gray-400",
+                        "focus:outline-none focus:ring-2 focus:ring-badger-red focus:border-transparent",
+                        "transition-all duration-200"
+                      )}
+                    />
+                  </div>
                   <textarea
                     value={newAttendee.about}
                     onChange={(e) => setNewAttendee({ ...newAttendee, about: e.target.value })}
@@ -674,10 +778,15 @@ export default function AdminPage() {
                     >
                       <div className="flex items-start justify-between">
                         <div>
-                          <p className="text-sm font-semibold text-gray-900 flex items-center gap-1">
+                          <p className="text-sm font-semibold text-gray-900 flex items-center gap-1 flex-wrap">
                             {attendee.name}
                             {isPinned && (
                               <span className="text-xs text-amber-600 font-normal">(pinned)</span>
+                            )}
+                            {!attendee.user_id && (
+                              <span className="text-xs text-orange-600 bg-orange-100 px-1.5 py-0.5 rounded font-normal">
+                                Unclaimed
+                              </span>
                             )}
                           </p>
                           <p className="text-xs text-gray-500">
@@ -704,6 +813,16 @@ export default function AdminPage() {
               <p className="text-gray-600">Select an attendee to edit.</p>
             ) : (
               <div className="space-y-5">
+                {!selected.user_id && (
+                  <div className="bg-orange-50 border border-orange-200 rounded-xl p-4">
+                    <p className="text-sm text-orange-800 font-medium">
+                      Unclaimed Profile
+                    </p>
+                    <p className="text-xs text-orange-700 mt-1">
+                      This profile is only visible to admins. It will become public once the user registers with their email and claims this profile.
+                    </p>
+                  </div>
+                )}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">Full Name</label>
@@ -767,10 +886,31 @@ export default function AdminPage() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">LinkedIn URL</label>
+                  <div className="flex items-center justify-between mb-2">
+                    <label className="block text-sm font-medium text-gray-700">LinkedIn URL</label>
+                    <button
+                      type="button"
+                      onClick={handleLookupLinkedIn}
+                      disabled={isLookingUpLinkedIn || !selected.name}
+                      className="inline-flex items-center px-3 py-1 text-xs font-medium rounded-full bg-[#0A66C2] text-white hover:bg-[#004182] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    >
+                      {isLookingUpLinkedIn ? (
+                        <>
+                          <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+                          Searching...
+                        </>
+                      ) : (
+                        <>
+                          <Linkedin className="w-3 h-3 mr-1" />
+                          Auto-find LinkedIn
+                        </>
+                      )}
+                    </button>
+                  </div>
                   <input
                     value={selected.linkedin_url ?? ""}
                     onChange={(e) => updateSelected({ linkedin_url: e.target.value })}
+                    placeholder="https://linkedin.com/in/username"
                     className={cn(
                       "w-full px-4 py-3 rounded-xl",
                       "bg-gray-50 border border-gray-300",
