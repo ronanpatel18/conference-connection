@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { motion } from "framer-motion";
 import { Loader2, Save, ArrowRight } from "lucide-react";
@@ -8,7 +8,7 @@ import { createClient } from "@/utils/supabase/client";
 import { cn } from "@/lib/utils";
 import type { Attendee } from "@/types/database.types";
 
-export default function ProfilePage() {
+function ProfileContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const isFromOnboarding = searchParams.get("from") === "onboarding";
@@ -455,5 +455,22 @@ export default function ProfilePage() {
         </motion.div>
       </div>
     </main>
+  );
+}
+
+export default function ProfilePage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen flex items-center justify-center bg-white">
+          <div className="text-center">
+            <Loader2 className="w-12 h-12 text-badger-red animate-spin mx-auto mb-4" />
+            <p className="text-gray-600">Loading profile...</p>
+          </div>
+        </div>
+      }
+    >
+      <ProfileContent />
+    </Suspense>
   );
 }
