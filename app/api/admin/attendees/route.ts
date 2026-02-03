@@ -1,41 +1,33 @@
-import { NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 import { createClient as createAdminClient } from "@supabase/supabase-js";
-import { createClient as createServerClient } from "@/utils/supabase/server";
+import { rateLimiters } from "@/lib/rate-limit";
+import { verifyAdminAccess, getAdminConfig } from "@/lib/admin";
+import {
+  validateBody,
+  createAttendeeSchema,
+  secureJsonResponse,
+} from "@/lib/validation";
 
 export const runtime = "nodejs";
 
-function isEmailAllowed(email?: string | null) {
-  const allowlist = process.env.ADMIN_ALLOWLIST_EMAILS || "";
-  const normalized = allowlist
-    .split(",")
-    .map((entry) => entry.trim().toLowerCase())
-    .filter(Boolean);
+export async function GET(request: NextRequest) {
+  // Rate limiting - admin operations
+  const rateLimitResult = await rateLimiters.admin(request);
+  if (rateLimitResult) return rateLimitResult;
 
-  if (!email) return false;
-  return normalized.includes(email.toLowerCase());
-}
+  // Verify admin access
+  const { error: authError } = await verifyAdminAccess();
+  if (authError) return authError;
 
-export async function GET() {
-  const supabase = await createServerClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!isEmailAllowed(user?.email ?? null)) {
-    return NextResponse.json({ success: false, error: "Forbidden" }, { status: 403 });
-  }
-
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-  if (!url || !serviceRoleKey) {
-    return NextResponse.json(
-      { success: false, error: "Missing SUPABASE_SERVICE_ROLE_KEY server env var" },
+  const config = getAdminConfig();
+  if (!config) {
+    return secureJsonResponse(
+      { success: false, error: "Server configuration error" },
       { status: 500 }
     );
   }
 
-  const admin = createAdminClient(url, serviceRoleKey, {
+  const admin = createAdminClient(config.url, config.serviceRoleKey, {
     auth: { persistSession: false, autoRefreshToken: false },
   });
 
@@ -47,48 +39,49 @@ export async function GET() {
     .order("created_at", { ascending: false });
 
   if (error) {
-    return NextResponse.json({ success: false, error: error.message }, { status: 500 });
-  }
-
-  return NextResponse.json({ success: true, data });
-}
-
-export async function POST(request: Request) {
-  const supabase = await createServerClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!isEmailAllowed(user?.email ?? null)) {
-    return NextResponse.json({ success: false, error: "Forbidden" }, { status: 403 });
-  }
-
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-  if (!url || !serviceRoleKey) {
-    return NextResponse.json(
-      { success: false, error: "Missing SUPABASE_SERVICE_ROLE_KEY server env var" },
+    console.error("[Admin] List attendees error:", error.message);
+    return secureJsonResponse(
+      { success: false, error: "Database error" },
       { status: 500 }
     );
   }
 
-  const body = await request.json();
-  const name = typeof body?.name === "string" ? body.name.trim() : "";
+  return secureJsonResponse({ success: true, data });
+}
 
-  if (!name) {
-    return NextResponse.json({ success: false, error: "Name is required" }, { status: 400 });
+export async function POST(request: NextRequest) {
+  // Rate limiting - admin operations
+  const rateLimitResult = await rateLimiters.admin(request);
+  if (rateLimitResult) return rateLimitResult;
+
+  // Verify admin access
+  const { error: authError } = await verifyAdminAccess();
+  if (authError) return authError;
+
+  const config = getAdminConfig();
+  if (!config) {
+    return secureJsonResponse(
+      { success: false, error: "Server configuration error" },
+      { status: 500 }
+    );
   }
 
-  const email = typeof body?.email === "string" ? body.email.trim() : "";
+  // Validate and sanitize input
+  const [validatedData, validationError] = await validateBody(
+    request,
+    createAttendeeSchema
+  );
+  if (validationError || !validatedData) return validationError!;
 
-  const admin = createAdminClient(url, serviceRoleKey, {
+  const { name, email, job_title, company, about, linkedin_url, industry_tags } = validatedData;
+
+  const admin = createAdminClient(config.url, config.serviceRoleKey, {
     auth: { persistSession: false, autoRefreshToken: false },
   });
 
   const origin = request.headers.get("origin") || new URL(request.url).origin;
   let aiSummary: string | null = null;
-  let industryTags: string[] = Array.isArray(body?.industry_tags) ? body.industry_tags : [];
+  let enrichedTags: string[] = [];
 
   try {
     const enrichResponse = await fetch(`${origin}/api/enrich-profile`, {
@@ -96,10 +89,10 @@ export async function POST(request: Request) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         name,
-        job_title: body?.job_title || undefined,
-        company: body?.company || undefined,
-        linkedin_url: body?.linkedin_url || undefined,
-        about: body?.about || undefined,
+        job_title: job_title || undefined,
+        company: company || undefined,
+        linkedin_url: linkedin_url || undefined,
+        about: about || undefined,
       }),
     });
 
@@ -110,32 +103,39 @@ export async function POST(request: Request) {
           aiSummary = enrichData.data.summary.join("\n");
         }
         if (Array.isArray(enrichData.data?.industry_tags)) {
-          industryTags = enrichData.data.industry_tags;
+          enrichedTags = enrichData.data.industry_tags;
         }
       }
     }
   } catch (error) {
-    console.error("Admin create enrichment failed:", error);
+    console.error("[Admin] Create enrichment failed:", error);
   }
+
+  // Use provided tags if available, otherwise use enriched tags
+  const finalTags = (industry_tags && industry_tags.length > 0) ? industry_tags : enrichedTags;
 
   const { data, error } = await admin
     .from("attendees")
     .insert({
       name,
       email: email || null,
-      job_title: body?.job_title || null,
-      company: body?.company || null,
-      linkedin_url: body?.linkedin_url || null,
-      about: body?.about || null,
+      job_title: job_title || null,
+      company: company || null,
+      linkedin_url: linkedin_url || null,
+      about: about || null,
       ai_summary: aiSummary,
-      industry_tags: industryTags,
+      industry_tags: finalTags,
     })
     .select()
     .single();
 
   if (error) {
-    return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+    console.error("[Admin] Insert attendee error:", error.message);
+    return secureJsonResponse(
+      { success: false, error: "Database error" },
+      { status: 500 }
+    );
   }
 
-  return NextResponse.json({ success: true, data });
+  return secureJsonResponse({ success: true, data });
 }

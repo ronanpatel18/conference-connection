@@ -1,12 +1,8 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
+import { rateLimiters } from '@/lib/rate-limit';
+import { validateBody, lookupLinkedinSchema, secureJsonResponse } from '@/lib/validation';
 
 export const runtime = 'nodejs';
-
-interface LookupLinkedInRequest {
-  name: string;
-  job_title?: string;
-  company?: string;
-}
 
 interface TavilySearchResult {
   title?: string;
@@ -20,18 +16,18 @@ interface TavilyResponse {
 
 export async function POST(request: NextRequest) {
   try {
-    const body: LookupLinkedInRequest = await request.json();
-    const { name, job_title, company } = body;
+    // Rate limiting - lookup operations
+    const rateLimitResult = await rateLimiters.lookup(request);
+    if (rateLimitResult) return rateLimitResult;
 
-    if (!name || name.trim().length === 0) {
-      return NextResponse.json(
-        { success: false, error: 'Name is required' },
-        { status: 400 }
-      );
-    }
+    // Validate and sanitize input
+    const [validatedData, validationError] = await validateBody(request, lookupLinkedinSchema);
+    if (validationError || !validatedData) return validationError!;
+
+    const { name, job_title, company } = validatedData;
 
     if (!process.env.TAVILY_API_KEY) {
-      return NextResponse.json(
+      return secureJsonResponse(
         { success: false, error: 'LinkedIn lookup is not configured' },
         { status: 500 }
       );
@@ -77,7 +73,7 @@ export async function POST(request: NextRequest) {
     });
 
     if (linkedInResults.length === 0) {
-      return NextResponse.json({
+      return secureJsonResponse({
         success: true,
         data: {
           linkedin_url: null,
@@ -135,7 +131,7 @@ export async function POST(request: NextRequest) {
     const bestMatch = scoredResults[0];
     console.log(`[LinkedIn Lookup] Best match (score ${bestMatch.score}): ${bestMatch.url}`);
 
-    return NextResponse.json({
+    return secureJsonResponse({
       success: true,
       data: {
         linkedin_url: bestMatch.url,
@@ -145,10 +141,10 @@ export async function POST(request: NextRequest) {
     });
   } catch (error) {
     console.error('[LinkedIn Lookup] Error:', error);
-    return NextResponse.json(
+    return secureJsonResponse(
       {
         success: false,
-        error: error instanceof Error ? error.message : 'Failed to lookup LinkedIn',
+        error: 'Failed to lookup LinkedIn',
       },
       { status: 500 }
     );

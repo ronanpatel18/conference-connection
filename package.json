@@ -19,7 +19,8 @@
     "openai": "^4.73.0",
     "react": "^18",
     "react-dom": "^18",
-    "tailwind-merge": "latest"
+    "tailwind-merge": "latest",
+    "zod": "^3.25.76"
   },
   "devDependencies": {
     "@types/node": "^20",

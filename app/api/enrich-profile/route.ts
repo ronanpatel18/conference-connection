@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { GoogleGenerativeAI } from '@google/generative-ai';
+import { rateLimiters } from '@/lib/rate-limit';
+import { validateBody, enrichProfileSchema, secureJsonResponse } from '@/lib/validation';
 
 export const runtime = 'nodejs';
 
@@ -7,14 +9,6 @@ let cachedGeminiModelName: string | null = null;
 let cachedGeminiModelAtMs = 0;
 
 // Type definitions
-interface EnrichProfileRequest {
-  name: string;
-  job_title?: string;
-  company?: string;
-  linkedin_url?: string;
-  about?: string;
-}
-
 interface TavilySearchResult {
   title?: string;
   content?: string;
@@ -27,19 +21,23 @@ interface TavilyResponse {
 
 export async function POST(request: NextRequest) {
   try {
-    // Parse request body
-    const body: EnrichProfileRequest = await request.json();
-    const { name, job_title, company, linkedin_url, about } = body;
+    // Rate limiting - expensive operation (AI calls)
+    const rateLimitResult = await rateLimiters.expensive(request);
+    if (rateLimitResult) return rateLimitResult;
 
-    // Validate input
-    if (!name || name.trim().length === 0) {
-      return NextResponse.json(
-        { success: false, error: 'Name is required' },
-        { status: 400 }
-      );
-    }
+    // Validate and sanitize input
+    const [validatedData, validationError] = await validateBody(request, enrichProfileSchema);
+    if (validationError || !validatedData) return validationError!;
 
-    console.log(`[Enrich] Processing: ${name}${company ? ` at ${company}` : ''}`);
+    const { name, job_title, company, linkedin_url, about } = validatedData;
+
+    // Convert null to undefined for optional fields
+    const jobTitle = job_title ?? undefined;
+    const companyName = company ?? undefined;
+    const linkedinUrl = linkedin_url ?? undefined;
+    const aboutText = about ?? undefined;
+
+    console.log(`[Enrich] Processing: ${name}${companyName ? ` at ${companyName}` : ''}`);
     console.log(`[Gemini] API Key check:`, process.env.DEFAULT_GEMINI_API_KEY ? 'Present' : 'Missing');
 
     const geminiApiKey = process.env.DEFAULT_GEMINI_API_KEY;
@@ -58,7 +56,7 @@ export async function POST(request: NextRequest) {
     let searchResults: TavilyResponse = { results: [], answer: '' };
     let tavilyErrorMessage: string | undefined;
     try {
-      const searchQuery = buildSearchQuery(name, job_title, company, linkedin_url, about);
+      const searchQuery = buildSearchQuery(name, jobTitle, companyName, linkedinUrl, aboutText);
       console.log(`[Tavily] Searching: "${searchQuery}"`);
 
       if (!process.env.TAVILY_API_KEY) {
@@ -95,7 +93,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Step 2: Prepare context for OpenAI
-    const contextText = buildContextFromResults(searchResults, name, about);
+    const contextText = buildContextFromResults(searchResults, name, aboutText);
 
     // Step 3: Use Gemini to analyze and summarize
     let aiResponse;
@@ -150,9 +148,9 @@ OUTPUT FORMAT (JSON only):
 Analyze this person and create their professional summary:
 
 Name: ${name}
-${job_title ? `Job Title: ${job_title}\n` : ''}${company ? `Company: ${company}\n` : ''}
-${about ? `About (user-provided): ${about}\n` : ''}
-${linkedin_url ? `LinkedIn: ${linkedin_url}\n` : ''}
+${jobTitle ? `Job Title: ${jobTitle}\n` : ''}${companyName ? `Company: ${companyName}\n` : ''}
+${aboutText ? `About (user-provided): ${aboutText}\n` : ''}
+${linkedinUrl ? `LinkedIn: ${linkedinUrl}\n` : ''}
 
 Information found:
 ${contextText}
@@ -274,7 +272,7 @@ Return ONLY valid JSON. Do not include markdown, code fences, or extra commentar
       ? aiResponse.industry_tags.slice(0, 3)
       : ['Business', 'Professional', 'Networking'];
 
-    return NextResponse.json({
+    return secureJsonResponse({
       success: true,
       data: {
         summary,
@@ -285,10 +283,10 @@ Return ONLY valid JSON. Do not include markdown, code fences, or extra commentar
     });
   } catch (error) {
     console.error('[API] Unexpected error:', error);
-    return NextResponse.json(
+    return secureJsonResponse(
       {
         success: false,
-        error: error instanceof Error ? error.message : 'An unexpected error occurred',
+        error: 'An unexpected error occurred',
       },
       { status: 500 }
     );

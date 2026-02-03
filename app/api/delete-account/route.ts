@@ -1,26 +1,35 @@
-import { NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 import { createClient as createAdminClient } from "@supabase/supabase-js";
 import { createClient as createServerClient } from "@/utils/supabase/server";
+import { rateLimiters } from "@/lib/rate-limit";
+import { secureJsonResponse } from "@/lib/validation";
 
 export const runtime = "nodejs";
 
-export async function POST() {
+export async function POST(request: NextRequest) {
   try {
+    // Rate limiting - strict for destructive operations
+    const rateLimitResult = await rateLimiters.strict(request);
+    if (rateLimitResult) return rateLimitResult;
+
     const supabase = await createServerClient();
     const {
       data: { user },
     } = await supabase.auth.getUser();
 
     if (!user) {
-      return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
+      return secureJsonResponse(
+        { success: false, error: "Unauthorized" },
+        { status: 401 }
+      );
     }
 
     const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
     const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
     if (!url || !serviceRoleKey) {
-      return NextResponse.json(
-        { success: false, error: "Missing SUPABASE_SERVICE_ROLE_KEY server env var" },
+      return secureJsonResponse(
+        { success: false, error: "Server configuration error" },
         { status: 500 }
       );
     }
@@ -36,8 +45,9 @@ export async function POST() {
       .eq("user_id", user.id);
 
     if (deleteProfileError) {
-      return NextResponse.json(
-        { success: false, error: deleteProfileError.message },
+      console.error("[DeleteAccount] Profile delete error:", deleteProfileError.message);
+      return secureJsonResponse(
+        { success: false, error: "Failed to delete profile" },
         { status: 500 }
       );
     }
@@ -46,16 +56,18 @@ export async function POST() {
     const { error: deleteUserError } = await admin.auth.admin.deleteUser(user.id);
 
     if (deleteUserError) {
-      return NextResponse.json(
-        { success: false, error: deleteUserError.message },
+      console.error("[DeleteAccount] Auth delete error:", deleteUserError.message);
+      return secureJsonResponse(
+        { success: false, error: "Failed to delete account" },
         { status: 500 }
       );
     }
 
-    return NextResponse.json({ success: true });
+    return secureJsonResponse({ success: true });
   } catch (error) {
-    return NextResponse.json(
-      { success: false, error: error instanceof Error ? error.message : "Unknown error" },
+    console.error("[DeleteAccount] Unexpected error:", error);
+    return secureJsonResponse(
+      { success: false, error: "An unexpected error occurred" },
       { status: 500 }
     );
   }

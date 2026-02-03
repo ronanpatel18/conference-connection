@@ -1,27 +1,28 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 import { createClient as createAdminClient } from "@supabase/supabase-js";
+import { rateLimiters } from "@/lib/rate-limit";
+import { validateBody, cleanupOrphanAuthSchema, secureJsonResponse } from "@/lib/validation";
 
 export const runtime = "nodejs";
 
-interface CleanupRequest {
-  email: string;
-}
-
 export async function POST(request: NextRequest) {
   try {
-    const body = (await request.json()) as CleanupRequest;
-    const email = body.email?.trim().toLowerCase();
+    // Strict rate limiting - this is a sensitive operation
+    const rateLimitResult = await rateLimiters.strict(request);
+    if (rateLimitResult) return rateLimitResult;
 
-    if (!email) {
-      return NextResponse.json({ success: false, error: "Email is required" }, { status: 400 });
-    }
+    // Validate and sanitize input
+    const [validatedData, validationError] = await validateBody(request, cleanupOrphanAuthSchema);
+    if (validationError || !validatedData) return validationError!;
+
+    const { email } = validatedData;
 
     const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
     const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
     if (!url || !serviceRoleKey) {
-      return NextResponse.json(
-        { success: false, error: "Missing SUPABASE_SERVICE_ROLE_KEY server env var" },
+      return secureJsonResponse(
+        { success: false, error: "Server configuration error" },
         { status: 500 }
       );
     }
@@ -36,8 +37,9 @@ export async function POST(request: NextRequest) {
     });
 
     if (usersError) {
-      return NextResponse.json(
-        { success: false, error: usersError.message },
+      console.error("[Cleanup] Users list error:", usersError.message);
+      return secureJsonResponse(
+        { success: false, error: "Database error" },
         { status: 500 }
       );
     }
@@ -47,7 +49,7 @@ export async function POST(request: NextRequest) {
     );
 
     if (!existingUser) {
-      return NextResponse.json({ success: true, deleted: false, reason: "not_found" });
+      return secureJsonResponse({ success: true, deleted: false, reason: "not_found" });
     }
 
     const { data: attendee, error: attendeeError } = await admin
@@ -57,14 +59,15 @@ export async function POST(request: NextRequest) {
       .maybeSingle();
 
     if (attendeeError) {
-      return NextResponse.json(
-        { success: false, error: attendeeError.message },
+      console.error("[Cleanup] Attendee lookup error:", attendeeError.message);
+      return secureJsonResponse(
+        { success: false, error: "Database error" },
         { status: 500 }
       );
     }
 
     if (attendee) {
-      return NextResponse.json({
+      return secureJsonResponse({
         success: true,
         deleted: false,
         reason: "profile_exists",
@@ -73,16 +76,18 @@ export async function POST(request: NextRequest) {
 
     const { error: deleteError } = await admin.auth.admin.deleteUser(existingUser.id);
     if (deleteError) {
-      return NextResponse.json(
-        { success: false, error: deleteError.message },
+      console.error("[Cleanup] Delete error:", deleteError.message);
+      return secureJsonResponse(
+        { success: false, error: "Failed to cleanup" },
         { status: 500 }
       );
     }
 
-    return NextResponse.json({ success: true, deleted: true });
+    return secureJsonResponse({ success: true, deleted: true });
   } catch (error) {
-    return NextResponse.json(
-      { success: false, error: error instanceof Error ? error.message : "Unknown error" },
+    console.error("[Cleanup] Unexpected error:", error);
+    return secureJsonResponse(
+      { success: false, error: "An unexpected error occurred" },
       { status: 500 }
     );
   }

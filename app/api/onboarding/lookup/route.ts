@@ -1,31 +1,36 @@
-import { NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 import { createClient as createAdminClient } from "@supabase/supabase-js";
+import { rateLimiters } from "@/lib/rate-limit";
+import { validateBody, lookupSchema, secureJsonResponse } from "@/lib/validation";
 
 export const runtime = "nodejs";
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
+  // Rate limiting - lookup operations
+  const rateLimitResult = await rateLimiters.lookup(request);
+  if (rateLimitResult) return rateLimitResult;
+
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
   if (!url || !serviceRoleKey) {
-    return NextResponse.json(
-      { success: false, error: "Missing SUPABASE_SERVICE_ROLE_KEY server env var" },
+    return secureJsonResponse(
+      { success: false, error: "Server configuration error" },
       { status: 500 }
     );
   }
 
-  const body = await request.json();
-  const name = typeof body?.name === "string" ? body.name.trim() : "";
+  // Validate and sanitize input
+  const [validatedData, validationError] = await validateBody(request, lookupSchema);
+  if (validationError || !validatedData) return validationError!;
 
-  if (!name) {
-    return NextResponse.json({ success: false, error: "Name is required" }, { status: 400 });
-  }
+  const { name } = validatedData;
 
   const admin = createAdminClient(url, serviceRoleKey, {
     auth: { persistSession: false, autoRefreshToken: false },
   });
 
-  const { data, error } = await admin
+  const { data: attendees, error } = await admin
     .from("attendees")
     .select("id, name")
     .ilike("name", name)
@@ -34,13 +39,17 @@ export async function POST(request: Request) {
     .limit(1);
 
   if (error) {
-    return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+    console.error("[Lookup] Database error:", error.message);
+    return secureJsonResponse(
+      { success: false, error: "Database error" },
+      { status: 500 }
+    );
   }
 
-  const attendee = data?.[0];
+  const attendee = attendees?.[0];
   if (!attendee) {
-    return NextResponse.json({ success: true, found: false });
+    return secureJsonResponse({ success: true, found: false });
   }
 
-  return NextResponse.json({ success: true, found: true, attendeeId: attendee.id });
+  return secureJsonResponse({ success: true, found: true, attendeeId: attendee.id });
 }

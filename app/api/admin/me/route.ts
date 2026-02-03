@@ -1,25 +1,21 @@
-import { NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 import { createClient } from "@/utils/supabase/server";
+import { rateLimiters } from "@/lib/rate-limit";
+import { isEmailAllowed } from "@/lib/admin";
+import { secureJsonResponse } from "@/lib/validation";
 
 export const runtime = "nodejs";
 
-function isEmailAllowed(email?: string | null) {
-  const allowlist = process.env.ADMIN_ALLOWLIST_EMAILS || "";
-  const normalized = allowlist
-    .split(",")
-    .map((entry) => entry.trim().toLowerCase())
-    .filter(Boolean);
+export async function GET(request: NextRequest) {
+  // Rate limiting
+  const rateLimitResult = await rateLimiters.standard(request);
+  if (rateLimitResult) return rateLimitResult;
 
-  if (!email) return false;
-  return normalized.includes(email.toLowerCase());
-}
-
-export async function GET() {
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
 
   const isAdmin = isEmailAllowed(user?.email ?? null);
-  return NextResponse.json({ isAdmin });
+  return secureJsonResponse({ isAdmin });
 }

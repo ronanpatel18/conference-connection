@@ -1,54 +1,35 @@
-import { NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 import { createClient as createAdminClient } from "@supabase/supabase-js";
-import { createClient as createServerClient } from "@/utils/supabase/server";
+import { rateLimiters } from "@/lib/rate-limit";
+import { verifyAdminAccess, getAdminConfig } from "@/lib/admin";
+import { validateBody, reorderSchema, secureJsonResponse } from "@/lib/validation";
 
 export const runtime = "nodejs";
 
-function isEmailAllowed(email?: string | null) {
-  const allowlist = process.env.ADMIN_ALLOWLIST_EMAILS || "";
-  const normalized = allowlist
-    .split(",")
-    .map((entry) => entry.trim().toLowerCase())
-    .filter(Boolean);
+export async function POST(request: NextRequest) {
+  // Rate limiting - admin operations
+  const rateLimitResult = await rateLimiters.admin(request);
+  if (rateLimitResult) return rateLimitResult;
 
-  if (!email) return false;
-  return normalized.includes(email.toLowerCase());
-}
+  // Verify admin access
+  const { error: authError } = await verifyAdminAccess();
+  if (authError) return authError;
 
-interface ReorderItem {
-  id: string;
-  sort_order: number;
-  is_pinned?: boolean;
-}
-
-export async function POST(request: Request) {
-  const supabase = await createServerClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!isEmailAllowed(user?.email ?? null)) {
-    return NextResponse.json({ success: false, error: "Forbidden" }, { status: 403 });
-  }
-
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-  if (!supabaseUrl || !serviceRoleKey) {
-    return NextResponse.json(
-      { success: false, error: "Missing SUPABASE_SERVICE_ROLE_KEY server env var" },
+  const config = getAdminConfig();
+  if (!config) {
+    return secureJsonResponse(
+      { success: false, error: "Server configuration error" },
       { status: 500 }
     );
   }
 
-  const body = await request.json();
-  const items: ReorderItem[] = Array.isArray(body?.items) ? body.items : [];
+  // Validate and sanitize input
+  const [validatedData, validationError] = await validateBody(request, reorderSchema);
+  if (validationError || !validatedData) return validationError!;
 
-  if (items.length === 0) {
-    return NextResponse.json({ success: false, error: "No items to reorder" }, { status: 400 });
-  }
+  const { items } = validatedData;
 
-  const admin = createAdminClient(supabaseUrl, serviceRoleKey, {
+  const admin = createAdminClient(config.url, config.serviceRoleKey, {
     auth: { persistSession: false, autoRefreshToken: false },
   });
 
@@ -67,11 +48,12 @@ export async function POST(request: Request) {
   const errors = results.filter((result) => result.error);
 
   if (errors.length > 0) {
-    return NextResponse.json(
-      { success: false, error: errors[0].error?.message || "Failed to reorder" },
+    console.error("[Admin] Reorder error:", errors[0].error?.message);
+    return secureJsonResponse(
+      { success: false, error: "Failed to reorder" },
       { status: 500 }
     );
   }
 
-  return NextResponse.json({ success: true });
+  return secureJsonResponse({ success: true });
 }

@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef } from "react";
 import { motion } from "framer-motion";
-import { Sparkles, Linkedin, Briefcase, Building2 } from "lucide-react";
+import { Sparkles, Linkedin, Briefcase, Building2, RotateCcw } from "lucide-react";
 import type { Attendee } from "@/types/database.types";
 import { cn } from "@/lib/utils";
 import {
@@ -20,13 +20,14 @@ export default function AttendeeCard({ attendee, index }: AttendeeCardProps) {
   const [isFlipped, setIsFlipped] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const theme = getThemeForAttendee(attendee);
+  const cardRef = useRef<HTMLDivElement>(null);
 
-  // Track if we're currently scrolling to prevent flip on scroll end
+  // Track touch for scroll vs tap detection
   const touchDataRef = useRef<{
     startX: number;
     startY: number;
     startTime: number;
-    didScroll: boolean;
+    scrolled: boolean;
   } | null>(null);
 
   useEffect(() => {
@@ -38,44 +39,68 @@ export default function AttendeeCard({ attendee, index }: AttendeeCardProps) {
     return () => window.removeEventListener("resize", checkMobile);
   }, []);
 
-  const handleTouchStart = useCallback((e: React.TouchEvent) => {
-    const touch = e.touches[0];
-    touchDataRef.current = {
-      startX: touch.clientX,
-      startY: touch.clientY,
-      startTime: Date.now(),
-      didScroll: false,
+  // Use native event listeners for passive touch handling
+  useEffect(() => {
+    if (!isMobile || !cardRef.current) return;
+
+    const card = cardRef.current;
+
+    const handleTouchStart = (e: TouchEvent) => {
+      const touch = e.touches[0];
+      touchDataRef.current = {
+        startX: touch.clientX,
+        startY: touch.clientY,
+        startTime: Date.now(),
+        scrolled: false,
+      };
     };
-  }, []);
 
-  const handleTouchMove = useCallback(() => {
-    // Mark that scrolling has occurred
-    if (touchDataRef.current) {
-      touchDataRef.current.didScroll = true;
-    }
-  }, []);
+    const handleTouchMove = () => {
+      // Mark that movement occurred (potential scroll)
+      if (touchDataRef.current) {
+        touchDataRef.current.scrolled = true;
+      }
+    };
 
-  const handleTouchEnd = useCallback((e: React.TouchEvent) => {
-    if (!touchDataRef.current) return;
+    const handleTouchEnd = (e: TouchEvent) => {
+      if (!touchDataRef.current) return;
 
-    const { startX, startY, startTime, didScroll } = touchDataRef.current;
-    const touch = e.changedTouches[0];
-    const deltaX = Math.abs(touch.clientX - startX);
-    const deltaY = Math.abs(touch.clientY - startY);
-    const duration = Date.now() - startTime;
+      const { startX, startY, startTime, scrolled } = touchDataRef.current;
+      const touch = e.changedTouches[0];
+      const deltaX = Math.abs(touch.clientX - startX);
+      const deltaY = Math.abs(touch.clientY - startY);
+      const duration = Date.now() - startTime;
 
-    // Only flip if:
-    // 1. No scroll occurred during the touch
-    // 2. Minimal movement (less than 8px)
-    // 3. Short duration (less than 250ms for a quick tap)
-    const isQuickTap = !didScroll && deltaX < 8 && deltaY < 8 && duration < 250;
+      // Check if target is an interactive element (links, buttons)
+      const target = e.target as HTMLElement;
+      const isInteractive = target.closest('a, button, [role="button"]');
 
-    if (isQuickTap) {
-      setIsFlipped((prev) => !prev);
-    }
+      // Only flip if:
+      // 1. No significant movement (< 10px in any direction)
+      // 2. Quick tap (< 300ms)
+      // 3. Not on an interactive element
+      // 4. No scroll occurred
+      const isQuickTap = !scrolled && deltaX < 10 && deltaY < 10 && duration < 300;
 
-    touchDataRef.current = null;
-  }, []);
+      if (isQuickTap && !isInteractive) {
+        setIsFlipped((prev) => !prev);
+      }
+
+      touchDataRef.current = null;
+    };
+
+    // Add passive listeners - they won't block scrolling
+    card.addEventListener("touchstart", handleTouchStart, { passive: true });
+    card.addEventListener("touchmove", handleTouchMove, { passive: true });
+    card.addEventListener("touchend", handleTouchEnd, { passive: true });
+
+    return () => {
+      card.removeEventListener("touchstart", handleTouchStart);
+      card.removeEventListener("touchmove", handleTouchMove);
+      card.removeEventListener("touchend", handleTouchEnd);
+    };
+  }, [isMobile]);
+
   const displayTags = (attendee.industry_tags || [])
     .filter((tag): tag is string => typeof tag === "string" && tag.trim().length > 0)
     .filter((tag) => isValidSubcategory(tag))
@@ -91,14 +116,15 @@ export default function AttendeeCard({ attendee, index }: AttendeeCardProps) {
       style={{ perspective: "1000px" }}
     >
       <motion.div
-        className="relative w-full h-full min-h-[280px] cursor-pointer"
+        ref={cardRef}
+        className={cn(
+          "relative w-full h-full min-h-[280px]",
+          "cursor-pointer"
+        )}
         style={{ touchAction: "pan-y" }}
         onHoverStart={() => !isMobile && setIsFlipped(true)}
         onHoverEnd={() => !isMobile && setIsFlipped(false)}
         onClick={() => !isMobile && setIsFlipped((prev) => !prev)}
-        onTouchStart={isMobile ? handleTouchStart : undefined}
-        onTouchMove={isMobile ? handleTouchMove : undefined}
-        onTouchEnd={isMobile ? handleTouchEnd : undefined}
         whileHover={!isMobile ? { scale: 1.02 } : undefined}
         transition={{ duration: 0.15 }}
       >
@@ -148,7 +174,6 @@ export default function AttendeeCard({ attendee, index }: AttendeeCardProps) {
                     target="_blank"
                     rel="noopener noreferrer"
                     onClick={(e) => e.stopPropagation()}
-                    onTouchEnd={(e) => e.stopPropagation()}
                     className="flex-shrink-0 text-[#0A66C2]/60 hover:text-[#0A66C2] transition-colors"
                     aria-label="View LinkedIn profile"
                   >
@@ -156,7 +181,7 @@ export default function AttendeeCard({ attendee, index }: AttendeeCardProps) {
                   </a>
                 )}
               </div>
-              
+
               {attendee.job_title && (
                 <div className="flex items-start space-x-2 mb-2">
                   <Briefcase className="w-4 h-4 text-gray-500 mt-0.5 flex-shrink-0" />
@@ -288,6 +313,26 @@ export default function AttendeeCard({ attendee, index }: AttendeeCardProps) {
                 <Linkedin className="w-4 h-4" />
                 <span>Connect on LinkedIn</span>
               </a>
+            )}
+
+            {/* Mobile flip-back button */}
+            {isMobile && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setIsFlipped(false);
+                }}
+                className={cn(
+                  "mt-4 w-full py-3 rounded-xl text-sm font-medium",
+                  "bg-gray-100 text-gray-600",
+                  "active:bg-gray-200 transition-colors",
+                  "flex items-center justify-center gap-2"
+                )}
+              >
+                <RotateCcw className="w-4 h-4" />
+                <span>Tap to flip back</span>
+              </button>
             )}
           </div>
         </motion.div>
