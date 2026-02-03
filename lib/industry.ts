@@ -137,19 +137,6 @@ export const CATEGORY_TREE: IndustryCategory[] = [
   },
 ];
 
-const SPECIAL_COMPANY_THEMES: IndustryTheme[] = [
-  {
-    name: "Wisconsin Sports Business Conference",
-    main: "#c5050c",
-    tint: "#FEE2E2",
-  },
-  {
-    name: "Wisconsin",
-    main: "#c5050c",
-    tint: "#FEE2E2",
-  },
-];
-
 const normalize = (value: string) => value.toLowerCase().replace(/\s+/g, " ").trim();
 
 export const getThemeForCategory = (category?: string | null): IndustryTheme | null => {
@@ -189,20 +176,6 @@ export const getThemeForAttendee = (attendee: {
   company?: string | null;
   industry_tags?: string[] | null;
 }): IndustryTheme => {
-  const company = attendee.company || "";
-  const companyNormalized = normalize(company);
-
-  if (
-    companyNormalized.includes("wisconsin sports business conference") ||
-    companyNormalized.includes("wisconsin sports buisness conference")
-  ) {
-    return SPECIAL_COMPANY_THEMES[0];
-  }
-
-  if (companyNormalized.includes("wisconsin")) {
-    return SPECIAL_COMPANY_THEMES[1];
-  }
-
   const tags = attendee.industry_tags || [];
   for (const tag of tags) {
     const theme = getThemeForSubcategory(tag);
