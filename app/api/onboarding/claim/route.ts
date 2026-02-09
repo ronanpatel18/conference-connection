@@ -41,12 +41,56 @@ export async function POST(request: NextRequest) {
     auth: { persistSession: false, autoRefreshToken: false },
   });
 
+  // Step 1: Fetch the unclaimed attendee by ID
+  const { data: existing, error: fetchError } = await admin
+    .from("attendees")
+    .select("id, name")
+    .eq("id", attendeeId)
+    .is("user_id", null)
+    .single();
+
+  if (fetchError || !existing) {
+    return secureJsonResponse(
+      { success: false, error: "Profile not available" },
+      { status: 404 }
+    );
+  }
+
+  // Step 2: Verify name matches (exact case-insensitive or fuzzy)
+  const exactMatch = existing.name.trim().toLowerCase() === name.trim().toLowerCase();
+  let fuzzyMatch = false;
+
+  if (!exactMatch) {
+    const inputParts = name.trim().split(/\s+/);
+    const dbParts = existing.name.trim().split(/\s+/);
+
+    if (inputParts.length >= 2 && dbParts.length >= 2) {
+      const inputFirst = inputParts[0].toLowerCase();
+      const inputLast = inputParts[inputParts.length - 1].toLowerCase();
+      const dbFirst = dbParts[0].toLowerCase();
+      const dbLast = dbParts[dbParts.length - 1].toLowerCase();
+
+      fuzzyMatch =
+        inputLast === dbLast &&
+        inputFirst.length >= 2 &&
+        dbFirst.length >= 2 &&
+        inputFirst.substring(0, 2) === dbFirst.substring(0, 2);
+    }
+  }
+
+  if (!exactMatch && !fuzzyMatch) {
+    return secureJsonResponse(
+      { success: false, error: "Profile not available" },
+      { status: 404 }
+    );
+  }
+
+  // Step 3: Claim the profile
   const { data: attendee, error } = await admin
     .from("attendees")
     .update({ user_id: user.id, email, name })
     .eq("id", attendeeId)
     .is("user_id", null)
-    .ilike("name", name)
     .select()
     .single();
 
