@@ -89,15 +89,28 @@ export default function NetworkPage() {
       );
     }
 
-    // Apply user-selected sort option
+    // Helper: extract last name for sorting
+    const getLastName = (name: string) => {
+      const parts = name.trim().split(/\s+/);
+      return (parts[parts.length - 1] || name).toLowerCase();
+    };
+
+    // Apply sort — pinned items always stay on top
     if (sortOption === "name") {
       filtered.sort((a, b) => a.name.localeCompare(b.name));
     } else if (sortOption === "recent") {
       filtered.sort((a, b) =>
         new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
       );
+    } else {
+      // Default: alphabetical by last name, pinned first
+      filtered.sort((a, b) => {
+        const aPinned = a.is_pinned ? 1 : 0;
+        const bPinned = b.is_pinned ? 1 : 0;
+        if (aPinned !== bPinned) return bPinned - aPinned;
+        return getLastName(a.name).localeCompare(getLastName(b.name));
+      });
     }
-    // "default" keeps the admin-defined order (pinned first, then sort_order)
 
     setFilteredAttendees(filtered);
   }, [attendees, searchQuery, selectedIndustry, sortOption]);
@@ -204,8 +217,8 @@ export default function NetworkPage() {
                   "cursor-pointer transition-all duration-200"
                 )}
               >
-                <option value="default">Featured Order</option>
-                <option value="name">Sort by Name (A-Z)</option>
+                <option value="default">Last Name (A-Z)</option>
+                <option value="name">First Name (A-Z)</option>
                 <option value="recent">Recently Added</option>
               </select>
               <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500 pointer-events-none" />
