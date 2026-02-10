@@ -94,7 +94,7 @@ export function sanitizeLinkedInUrl(input: unknown): string | null {
   try {
     const url = new URL(sanitized);
     // Must be LinkedIn
-    if (!url.hostname.endsWith("linkedin.com")) return null;
+    if (url.hostname !== "linkedin.com" && !url.hostname.endsWith(".linkedin.com")) return null;
     // Must be HTTPS
     if (url.protocol !== "https:") return null;
     // Return normalized URL
@@ -359,7 +359,6 @@ export async function validateBody<T extends z.ZodType>(
     }
 
     const body = await request.json();
-    console.log("[Validation] Received body:", JSON.stringify(body, null, 2));
     const result = schema.safeParse(body);
 
     if (!result.success) {

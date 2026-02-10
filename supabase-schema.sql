@@ -63,13 +63,17 @@ CREATE POLICY "Allow authenticated insert access"
   WITH CHECK (auth.uid() = user_id);
 
 -- Policy 3: Allow users to update their own records
--- For MVP, we'll allow updates based on email matching
--- In production, you'd want proper authentication
 CREATE POLICY "Allow users to update own record"
   ON public.attendees
   FOR UPDATE
   USING (auth.uid() = user_id)
   WITH CHECK (auth.uid() = user_id);
+
+-- Policy 4: Allow users to delete their own records
+CREATE POLICY "Allow users to delete own record"
+  ON public.attendees
+  FOR DELETE
+  USING (auth.uid() = user_id);
 
 -- =============================================
 -- HELPER FUNCTION: Update updated_at timestamp

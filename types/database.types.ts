@@ -61,3 +61,10 @@ export interface Database {
 export type Attendee = Database['public']['Tables']['attendees']['Row']
 export type AttendeeInsert = Database['public']['Tables']['attendees']['Insert']
 export type AttendeeUpdate = Database['public']['Tables']['attendees']['Update']
+
+// Public-facing attendee data (excludes PII like email, about)
+export type NetworkAttendee = Pick<Attendee,
+  'id' | 'user_id' | 'name' | 'job_title' | 'company' |
+  'linkedin_url' | 'ai_summary' | 'industry_tags' |
+  'is_pinned' | 'sort_order' | 'created_at'
+>

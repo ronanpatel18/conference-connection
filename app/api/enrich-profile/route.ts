@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { GoogleGenerativeAI } from '@google/generative-ai';
+import { createClient as createServerClient } from '@/utils/supabase/server';
 import { rateLimiters } from '@/lib/rate-limit';
 import { validateBody, enrichProfileSchema, secureJsonResponse } from '@/lib/validation';
 
@@ -25,6 +26,19 @@ export async function POST(request: NextRequest) {
     const rateLimitResult = await rateLimiters.expensive(request);
     if (rateLimitResult) return rateLimitResult;
 
+    // Authentication check
+    const supabase = await createServerClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) {
+      return secureJsonResponse(
+        { success: false, error: 'Unauthorized' },
+        { status: 401 }
+      );
+    }
+
     // Validate and sanitize input
     const [validatedData, validationError] = await validateBody(request, enrichProfileSchema);
     if (validationError || !validatedData) return validationError!;
@@ -37,8 +51,9 @@ export async function POST(request: NextRequest) {
     const linkedinUrl = linkedin_url ?? undefined;
     const aboutText = about ?? undefined;
 
-    console.log(`[Enrich] Processing: ${name}${companyName ? ` at ${companyName}` : ''}`);
-    console.log(`[Gemini] API Key check:`, process.env.DEFAULT_GEMINI_API_KEY ? 'Present' : 'Missing');
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`[Enrich] Processing: ${name}${companyName ? ` at ${companyName}` : ''}`);
+    }
 
     const geminiApiKey = process.env.DEFAULT_GEMINI_API_KEY;
     if (!geminiApiKey) {
@@ -98,14 +113,9 @@ export async function POST(request: NextRequest) {
     // Step 3: Use Gemini to analyze and summarize
     let aiResponse;
     try {
-      console.log('[Gemini] Generating summary...');
-      console.log('[Gemini] API Key exists:', !!process.env.DEFAULT_GEMINI_API_KEY);
-      console.log('[Gemini] API Key length:', process.env.DEFAULT_GEMINI_API_KEY?.length);
-
       // Initialize Gemini client inside the function
       const genAI = new GoogleGenerativeAI(geminiApiKey);
       let modelName = requestedGeminiModel;
-      console.log('[Gemini] Requested model:', modelName);
 
       const prompt = `You are a professional conference networking assistant. Your job is to create concise, engaging professional summaries.
 
@@ -157,7 +167,6 @@ ${contextText}
 
 Return ONLY valid JSON. Do not include markdown, code fences, or extra commentary.`;
 
-      console.log('[Gemini] Sending prompt...');
       let result;
       try {
         const model = genAI.getGenerativeModel({
@@ -193,10 +202,8 @@ Return ONLY valid JSON. Do not include markdown, code fences, or extra commentar
         });
         result = await fallbackModel.generateContent(prompt);
       }
-      console.log('[Gemini] Got result...');
       const response = await result.response;
       const text = response.text();
-      console.log('[Gemini] Raw response:', text);
 
       // Extract JSON from the response (support raw JSON or fenced blocks)
       const jsonMatch = text.match(/\{[\s\S]*\}/);
@@ -248,7 +255,6 @@ Return ONLY valid JSON. Do not include markdown, code fences, or extra commentar
         }
       }
 
-      console.log('[Gemini] Summary generated successfully');
     } catch (geminiError) {
       console.error('[Gemini] Error details:', geminiError);
       return NextResponse.json(

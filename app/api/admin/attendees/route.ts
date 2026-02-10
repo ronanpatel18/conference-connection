@@ -79,12 +79,12 @@ export async function POST(request: NextRequest) {
     auth: { persistSession: false, autoRefreshToken: false },
   });
 
-  const origin = request.headers.get("origin") || new URL(request.url).origin;
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || new URL(request.url).origin;
   let aiSummary: string | null = null;
   let enrichedTags: string[] = [];
 
   try {
-    const enrichResponse = await fetch(`${origin}/api/enrich-profile`, {
+    const enrichResponse = await fetch(`${appUrl}/api/enrich-profile`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({

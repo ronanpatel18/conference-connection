@@ -39,7 +39,7 @@ export async function POST(request: NextRequest) {
   const { data: attendees, error } = await admin
     .from("attendees")
     .select("id, name")
-    .ilike("name", name)
+    .ilike("name", escapeLikePattern(name))
     .is("user_id", null)
     .order("created_at", { ascending: false })
     .limit(1);

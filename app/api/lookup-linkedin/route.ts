@@ -1,4 +1,5 @@
 import { NextRequest } from 'next/server';
+import { createClient as createServerClient } from '@/utils/supabase/server';
 import { rateLimiters } from '@/lib/rate-limit';
 import { validateBody, lookupLinkedinSchema, secureJsonResponse } from '@/lib/validation';
 
@@ -19,6 +20,19 @@ export async function POST(request: NextRequest) {
     // Rate limiting - lookup operations
     const rateLimitResult = await rateLimiters.lookup(request);
     if (rateLimitResult) return rateLimitResult;
+
+    // Authentication check
+    const supabase = await createServerClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) {
+      return secureJsonResponse(
+        { success: false, error: 'Unauthorized' },
+        { status: 401 }
+      );
+    }
 
     // Validate and sanitize input
     const [validatedData, validationError] = await validateBody(request, lookupLinkedinSchema);

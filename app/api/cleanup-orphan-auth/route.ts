@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
 import { createClient as createAdminClient } from "@supabase/supabase-js";
+import { createClient as createServerClient } from "@/utils/supabase/server";
 import { rateLimiters } from "@/lib/rate-limit";
 import { validateBody, cleanupOrphanAuthSchema, secureJsonResponse } from "@/lib/validation";
 
@@ -16,6 +17,19 @@ export async function POST(request: NextRequest) {
     if (validationError || !validatedData) return validationError!;
 
     const { email } = validatedData;
+
+    // Authentication check - if user is authenticated, only allow cleanup of own email
+    const supabase = await createServerClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (user && user.email?.toLowerCase() !== email.toLowerCase()) {
+      return secureJsonResponse(
+        { success: false, error: "Forbidden" },
+        { status: 403 }
+      );
+    }
 
     const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
     const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -49,7 +63,8 @@ export async function POST(request: NextRequest) {
     );
 
     if (!existingUser) {
-      return secureJsonResponse({ success: true, deleted: false, reason: "not_found" });
+      // Return uniform response to prevent email enumeration
+      return secureJsonResponse({ success: true, deleted: false });
     }
 
     const { data: attendee, error: attendeeError } = await admin
@@ -67,10 +82,10 @@ export async function POST(request: NextRequest) {
     }
 
     if (attendee) {
+      // Return uniform response to prevent email enumeration
       return secureJsonResponse({
         success: true,
         deleted: false,
-        reason: "profile_exists",
       });
     }
 

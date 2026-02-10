@@ -5,15 +5,15 @@ import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { Loader2, Users, Search, X, ChevronDown } from "lucide-react";
 import { createClient } from "@/utils/supabase/client";
-import type { Attendee } from "@/types/database.types";
+import type { NetworkAttendee } from "@/types/database.types";
 import AttendeeCard from "@/components/AttendeeCard";
 import { cn } from "@/lib/utils";
 import { CATEGORY_THEMES, getMainCategoryForSubcategory, getThemeForCategory } from "@/lib/industry";
 
 export default function NetworkPage() {
   const router = useRouter();
-  const [attendees, setAttendees] = useState<Attendee[]>([]);
-  const [filteredAttendees, setFilteredAttendees] = useState<Attendee[]>([]);
+  const [attendees, setAttendees] = useState<NetworkAttendee[]>([]);
+  const [filteredAttendees, setFilteredAttendees] = useState<NetworkAttendee[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
@@ -29,27 +29,35 @@ export default function NetworkPage() {
         return;
       }
 
-      // Check if user is admin
-      const adminCheck = await fetch("/api/admin/me")
-        .then((res) => res.json())
-        .catch(() => ({ isAdmin: false }));
+      // Check if user is admin to show unclaimed profiles
+      let isAdmin = false;
+      try {
+        const adminRes = await fetch("/api/admin/me");
+        if (adminRes.ok) {
+          const adminData = await adminRes.json();
+          isAdmin = adminData.isAdmin === true;
+        }
+      } catch {
+        // Not admin, continue normally
+      }
 
-      const { data, error } = await supabase
+      let query = supabase
         .from("attendees")
-        .select("*")
+        .select("id, user_id, name, job_title, company, linkedin_url, ai_summary, industry_tags, is_pinned, sort_order, created_at");
+
+      // Non-admins only see claimed profiles
+      if (!isAdmin) {
+        query = query.not("user_id", "is", null);
+      }
+
+      const { data, error } = await query
         .order("is_pinned", { ascending: false, nullsFirst: false })
         .order("sort_order", { ascending: true })
         .order("created_at", { ascending: false });
 
       if (error) throw error;
 
-      // Filter out unclaimed profiles (no user_id) for non-admin users
-      let visibleAttendees = data || [];
-      if (!adminCheck?.isAdmin) {
-        visibleAttendees = visibleAttendees.filter((a) => a.user_id !== null);
-      }
-
-      setAttendees(visibleAttendees);
+      setAttendees(data || []);
     } catch (err) {
       console.error("Error loading attendees:", err);
       setError(err instanceof Error ? err.message : "Failed to load attendees");

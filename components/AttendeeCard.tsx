@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import { motion } from "framer-motion";
 import { Sparkles, Linkedin, Briefcase, Building2, RotateCcw } from "lucide-react";
-import type { Attendee } from "@/types/database.types";
+import type { NetworkAttendee } from "@/types/database.types";
 import { cn } from "@/lib/utils";
 import {
   getThemeForAttendee,
@@ -12,7 +12,7 @@ import {
 } from "@/lib/industry";
 
 interface AttendeeCardProps {
-  attendee: Attendee;
+  attendee: NetworkAttendee;
   index: number;
 }
 

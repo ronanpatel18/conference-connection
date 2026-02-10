@@ -1,107 +1,132 @@
 /**
  * Rate Limiting Middleware
  *
- * Implements sliding window rate limiting with IP and user-based tracking.
- * Uses in-memory storage - for production scale, replace with Redis.
+ * Uses Upstash Redis for production (serverless-compatible).
+ * Falls back to in-memory store for local development when
+ * UPSTASH_REDIS_REST_URL / UPSTASH_REDIS_REST_TOKEN are not set.
  */
 
 import { NextRequest, NextResponse } from "next/server";
 
-interface RateLimitEntry {
-  count: number;
-  resetAt: number;
-}
+// ---------------------------------------------------------------------------
+// Types
+// ---------------------------------------------------------------------------
 
 interface RateLimitConfig {
   /** Maximum requests per window */
   limit: number;
   /** Window size in seconds */
   windowSec: number;
-  /** Optional: Different limit for authenticated users */
-  authenticatedLimit?: number;
-  /** Optional: Custom key generator */
-  keyGenerator?: (req: NextRequest) => string;
 }
 
-// In-memory store for rate limiting (per-process)
-// In production with multiple instances, use Redis or similar
-const rateLimitStore = new Map<string, RateLimitEntry>();
+// ---------------------------------------------------------------------------
+// Client IP extraction
+// ---------------------------------------------------------------------------
 
-// Cleanup old entries periodically (every 5 minutes)
-const CLEANUP_INTERVAL_MS = 5 * 60 * 1000;
-let lastCleanup = Date.now();
-
-function cleanupExpiredEntries() {
-  const now = Date.now();
-  if (now - lastCleanup < CLEANUP_INTERVAL_MS) return;
-
-  lastCleanup = now;
-  for (const [key, entry] of rateLimitStore.entries()) {
-    if (entry.resetAt < now) {
-      rateLimitStore.delete(key);
-    }
-  }
-}
-
-/**
- * Extract client IP from request headers
- * Handles various proxy configurations (Vercel, Cloudflare, nginx)
- */
 export function getClientIP(req: NextRequest): string {
-  // Vercel/other platforms
   const forwardedFor = req.headers.get("x-forwarded-for");
   if (forwardedFor) {
-    // Take the first IP (original client)
     const ip = forwardedFor.split(",")[0]?.trim();
     if (ip) return ip;
   }
-
-  // Cloudflare
   const cfConnecting = req.headers.get("cf-connecting-ip");
   if (cfConnecting) return cfConnecting;
-
-  // Real IP header (nginx)
   const realIp = req.headers.get("x-real-ip");
   if (realIp) return realIp;
-
-  // Fallback
   return "unknown";
 }
 
-/**
- * Check rate limit and return result
- */
-function checkRateLimit(
+// ---------------------------------------------------------------------------
+// Upstash Redis rate limiter (production)
+// ---------------------------------------------------------------------------
+
+let upstashLimiterCache: Map<string, ReturnType<typeof createUpstashLimiter>> | null = null;
+
+function getUpstashRedis() {
+  const url = process.env.UPSTASH_REDIS_REST_URL;
+  const token = process.env.UPSTASH_REDIS_REST_TOKEN;
+  if (!url || !token) return null;
+
+  // Dynamic import avoidance: require at module level is fine since
+  // the packages are installed as dependencies.
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const { Redis } = require("@upstash/redis") as typeof import("@upstash/redis");
+  return new Redis({ url, token });
+}
+
+function createUpstashLimiter(config: RateLimitConfig) {
+  const redis = getUpstashRedis();
+  if (!redis) return null;
+
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const { Ratelimit } = require("@upstash/ratelimit") as typeof import("@upstash/ratelimit");
+
+  return new Ratelimit({
+    redis,
+    limiter: Ratelimit.slidingWindow(config.limit, `${config.windowSec} s`),
+    analytics: true,
+    prefix: "rl",
+  });
+}
+
+function getOrCreateUpstashLimiter(name: string, config: RateLimitConfig) {
+  if (!upstashLimiterCache) upstashLimiterCache = new Map();
+  if (!upstashLimiterCache.has(name)) {
+    upstashLimiterCache.set(name, createUpstashLimiter(config));
+  }
+  return upstashLimiterCache.get(name);
+}
+
+// ---------------------------------------------------------------------------
+// In-memory fallback rate limiter (development only)
+// ---------------------------------------------------------------------------
+
+interface InMemoryEntry {
+  count: number;
+  resetAt: number;
+}
+
+const memoryStore = new Map<string, InMemoryEntry>();
+const CLEANUP_INTERVAL_MS = 5 * 60 * 1000;
+let lastCleanup = Date.now();
+
+function cleanupExpired() {
+  const now = Date.now();
+  if (now - lastCleanup < CLEANUP_INTERVAL_MS) return;
+  lastCleanup = now;
+  for (const [key, entry] of memoryStore.entries()) {
+    if (entry.resetAt < now) memoryStore.delete(key);
+  }
+}
+
+function checkInMemory(
   key: string,
   limit: number,
   windowSec: number
 ): { allowed: boolean; remaining: number; resetAt: number } {
-  cleanupExpiredEntries();
-
+  cleanupExpired();
   const now = Date.now();
   const windowMs = windowSec * 1000;
-  const entry = rateLimitStore.get(key);
+  const entry = memoryStore.get(key);
 
   if (!entry || entry.resetAt < now) {
-    // New window
     const resetAt = now + windowMs;
-    rateLimitStore.set(key, { count: 1, resetAt });
+    memoryStore.set(key, { count: 1, resetAt });
     return { allowed: true, remaining: limit - 1, resetAt };
   }
 
   if (entry.count >= limit) {
-    // Rate limited
     return { allowed: false, remaining: 0, resetAt: entry.resetAt };
   }
 
-  // Increment count
   entry.count++;
   return { allowed: true, remaining: limit - entry.count, resetAt: entry.resetAt };
 }
 
-/**
- * Create rate limit response headers
- */
+// ---------------------------------------------------------------------------
+// Unified rate limit factory
+// ---------------------------------------------------------------------------
+
 function createRateLimitHeaders(
   limit: number,
   remaining: number,
@@ -115,94 +140,65 @@ function createRateLimitHeaders(
   return headers;
 }
 
-/**
- * Rate limit middleware factory
- *
- * @example
- * const limiter = rateLimit({ limit: 10, windowSec: 60 });
- *
- * export async function POST(req: NextRequest) {
- *   const rateLimitResult = await limiter(req);
- *   if (rateLimitResult) return rateLimitResult;
- *   // ... rest of handler
- * }
- */
-export function rateLimit(config: RateLimitConfig) {
-  const {
-    limit,
-    windowSec,
-    authenticatedLimit,
-    keyGenerator,
-  } = config;
+function buildBlockedResponse(limit: number, remaining: number, resetAt: number) {
+  const retryAfterSec = Math.ceil((resetAt - Date.now()) / 1000);
+  const headers = createRateLimitHeaders(limit, remaining, resetAt);
+  return NextResponse.json(
+    {
+      success: false,
+      error: "Too many requests",
+      message: `Rate limit exceeded. Please try again in ${retryAfterSec} seconds.`,
+      retryAfter: retryAfterSec,
+    },
+    { status: 429, headers }
+  );
+}
+
+export function rateLimit(name: string, config: RateLimitConfig) {
+  const { limit, windowSec } = config;
 
   return async function rateLimitMiddleware(
-    req: NextRequest,
-    userId?: string | null
+    req: NextRequest
   ): Promise<NextResponse | null> {
-    // Generate rate limit key
     const ip = getClientIP(req);
-    const baseKey = keyGenerator ? keyGenerator(req) : `${req.nextUrl.pathname}:${ip}`;
+    const key = `${name}:${ip}`;
 
-    // If user is authenticated and we have a different limit for them
-    const effectiveLimit = userId && authenticatedLimit ? authenticatedLimit : limit;
-    const key = userId ? `user:${userId}:${baseKey}` : `ip:${baseKey}`;
-
-    const result = checkRateLimit(key, effectiveLimit, windowSec);
-    const headers = createRateLimitHeaders(effectiveLimit, result.remaining, result.resetAt);
-
-    if (!result.allowed) {
-      const retryAfterSec = Math.ceil((result.resetAt - Date.now()) / 1000);
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Too many requests",
-          message: `Rate limit exceeded. Please try again in ${retryAfterSec} seconds.`,
-          retryAfter: retryAfterSec,
-        },
-        {
-          status: 429,
-          headers,
-        }
-      );
+    // Try Upstash first
+    const upstash = getOrCreateUpstashLimiter(name, config);
+    if (upstash) {
+      const { success, remaining, reset } = await upstash.limit(key);
+      if (!success) {
+        return buildBlockedResponse(limit, remaining, reset);
+      }
+      return null;
     }
 
-    // Return null to indicate the request is allowed
-    // Headers will be added by the caller if needed
+    // Fallback to in-memory
+    const result = checkInMemory(key, limit, windowSec);
+    if (!result.allowed) {
+      return buildBlockedResponse(limit, result.remaining, result.resetAt);
+    }
     return null;
   };
 }
 
-/**
- * Pre-configured rate limiters for common use cases
- */
+// ---------------------------------------------------------------------------
+// Pre-configured limiters
+// ---------------------------------------------------------------------------
+
 export const rateLimiters = {
-  /** Standard API endpoint: 30 req/min per IP */
-  standard: rateLimit({ limit: 30, windowSec: 60 }),
+  /** Standard API endpoint: 30 req/min */
+  standard: rateLimit("standard", { limit: 30, windowSec: 60 }),
 
-  /** Strict endpoint (auth, sensitive): 10 req/min per IP */
-  strict: rateLimit({ limit: 10, windowSec: 60 }),
+  /** Strict endpoint (auth, sensitive): 10 req/min */
+  strict: rateLimit("strict", { limit: 10, windowSec: 60 }),
 
-  /** AI/expensive operations: 5 req/min per IP */
-  expensive: rateLimit({ limit: 5, windowSec: 60, authenticatedLimit: 10 }),
+  /** AI/expensive operations: 5 req/min */
+  expensive: rateLimit("expensive", { limit: 5, windowSec: 60 }),
 
-  /** Lookup operations: 20 req/min per IP */
-  lookup: rateLimit({ limit: 20, windowSec: 60 }),
+  /** Lookup operations: 20 req/min */
+  lookup: rateLimit("lookup", { limit: 20, windowSec: 60 }),
 
-  /** Admin operations: 60 req/min per user */
-  admin: rateLimit({ limit: 60, windowSec: 60 }),
+  /** Admin operations: 60 req/min */
+  admin: rateLimit("admin", { limit: 60, windowSec: 60 }),
 };
-
-/**
- * Add rate limit headers to an existing response
- */
-export function addRateLimitHeaders(
-  response: NextResponse,
-  limit: number,
-  remaining: number,
-  resetAt: number
-): NextResponse {
-  response.headers.set("X-RateLimit-Limit", String(limit));
-  response.headers.set("X-RateLimit-Remaining", String(Math.max(0, remaining)));
-  response.headers.set("X-RateLimit-Reset", String(Math.ceil(resetAt / 1000)));
-  return response;
-}
