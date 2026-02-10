@@ -1,7 +1,7 @@
 "use client";
 
 import { Suspense, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import { Loader2 } from "lucide-react";
@@ -17,7 +17,6 @@ export default function LoginPage() {
 }
 
 function LoginForm() {
-  const router = useRouter();
   const searchParams = useSearchParams();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -41,8 +40,7 @@ function LoginForm() {
       }
 
       const redirect = searchParams.get("redirect") || "/network";
-      router.refresh();
-      router.replace(redirect);
+      window.location.href = redirect;
     } catch (err) {
       setError(err instanceof Error ? err.message : "Login failed");
       setIsLoading(false);
