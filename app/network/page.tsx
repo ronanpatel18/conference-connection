@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+
 import { motion, AnimatePresence } from "framer-motion";
 import { Loader2, Users, Search, X, ChevronDown } from "lucide-react";
 import { createClient } from "@/utils/supabase/client";
@@ -11,7 +11,6 @@ import { cn } from "@/lib/utils";
 import { CATEGORY_THEMES, getMainCategoryForSubcategory, getThemeForCategory } from "@/lib/industry";
 
 export default function NetworkPage() {
-  const router = useRouter();
   const [attendees, setAttendees] = useState<NetworkAttendee[]>([]);
   const [filteredAttendees, setFilteredAttendees] = useState<NetworkAttendee[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -23,11 +22,7 @@ export default function NetworkPage() {
   const loadAttendees = useCallback(async () => {
     try {
       const supabase = createClient();
-      const { data: authData } = await supabase.auth.getUser();
-      if (!authData.user) {
-        router.push("/login");
-        return;
-      }
+      await supabase.auth.getUser();
 
       // Check if user is admin to show unclaimed profiles
       let isAdmin = false;
@@ -64,7 +59,7 @@ export default function NetworkPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [router]);
+  }, []);
 
   const filterAttendees = useCallback(() => {
     let filtered = [...attendees];

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import { Loader2 } from "lucide-react";
@@ -10,6 +10,7 @@ import { cn } from "@/lib/utils";
 
 export default function LoginPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -31,7 +32,9 @@ export default function LoginPage() {
         throw new Error(signInError.message);
       }
 
-      router.push("/network");
+      const redirect = searchParams.get("redirect") || "/network";
+      router.refresh();
+      router.replace(redirect);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Login failed");
       setIsLoading(false);
