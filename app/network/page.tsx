@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 
 import { motion, AnimatePresence } from "framer-motion";
-import { Loader2, Users, Search, X, ChevronDown } from "lucide-react";
+import { Loader2, Users, Search, X, ChevronDown, Eye, Shield } from "lucide-react";
 import { createClient } from "@/utils/supabase/client";
 import type { NetworkAttendee } from "@/types/database.types";
 import AttendeeCard from "@/components/AttendeeCard";
@@ -18,6 +18,8 @@ export default function NetworkPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedIndustry, setSelectedIndustry] = useState<string | null>(null);
   const [sortOption, setSortOption] = useState<"default" | "name" | "recent">("default");
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [viewMode, setViewMode] = useState<"admin" | "attendee">("admin");
 
   const loadAttendees = useCallback(async () => {
     try {
@@ -25,23 +27,24 @@ export default function NetworkPage() {
       await supabase.auth.getUser();
 
       // Check if user is admin to show unclaimed profiles
-      let isAdmin = false;
+      let adminStatus = false;
       try {
         const adminRes = await fetch("/api/admin/me");
         if (adminRes.ok) {
           const adminData = await adminRes.json();
-          isAdmin = adminData.isAdmin === true;
+          adminStatus = adminData.isAdmin === true;
         }
       } catch {
         // Not admin, continue normally
       }
+      setIsAdmin(adminStatus);
 
       let query = supabase
         .from("attendees")
         .select("id, user_id, name, job_title, company, linkedin_url, ai_summary, industry_tags, is_pinned, sort_order, created_at");
 
       // Non-admins only see claimed profiles
-      if (!isAdmin) {
+      if (!adminStatus) {
         query = query.not("user_id", "is", null);
       }
 
@@ -63,6 +66,11 @@ export default function NetworkPage() {
 
   const filterAttendees = useCallback(() => {
     let filtered = [...attendees];
+
+    // In attendee view mode, hide unclaimed profiles
+    if (isAdmin && viewMode === "attendee") {
+      filtered = filtered.filter((a) => a.user_id !== null);
+    }
 
     // Filter by search query (name, company, job title)
     if (searchQuery.trim()) {
@@ -108,7 +116,7 @@ export default function NetworkPage() {
     }
 
     setFilteredAttendees(filtered);
-  }, [attendees, searchQuery, selectedIndustry, sortOption]);
+  }, [attendees, searchQuery, selectedIndustry, sortOption, isAdmin, viewMode]);
 
   useEffect(() => {
     loadAttendees();
@@ -152,7 +160,7 @@ export default function NetworkPage() {
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="text-center mb-8"
+          className="text-center mb-8 relative"
         >
           <div className="flex items-center justify-center space-x-2 mb-4">
             <Users className="w-8 h-8 text-badger-red" />
@@ -161,8 +169,36 @@ export default function NetworkPage() {
             </h1>
           </div>
           <p className="text-gray-600 text-lg">
-            Connect with {attendees.length} professionals at the conference
+            Connect with {filteredAttendees.length} professionals at the conference
           </p>
+
+          {/* Admin view toggle */}
+          {isAdmin && (
+            <div className="absolute right-0 top-1/2 -translate-y-1/2">
+              <button
+                onClick={() => setViewMode(viewMode === "admin" ? "attendee" : "admin")}
+                className={cn(
+                  "inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-semibold border transition-all duration-200",
+                  viewMode === "admin"
+                    ? "border-badger-red bg-badger-red text-white shadow-md"
+                    : "border-gray-300 bg-white text-gray-700 hover:border-badger-red/50"
+                )}
+                title={viewMode === "admin" ? "Switch to attendee view" : "Switch to admin view"}
+              >
+                {viewMode === "admin" ? (
+                  <>
+                    <Shield className="w-4 h-4" />
+                    <span className="hidden sm:inline">Admin View</span>
+                  </>
+                ) : (
+                  <>
+                    <Eye className="w-4 h-4" />
+                    <span className="hidden sm:inline">Attendee View</span>
+                  </>
+                )}
+              </button>
+            </div>
+          )}
         </motion.div>
 
         {/* Search and Filter Bar */}

@@ -104,6 +104,11 @@ function LoginForm() {
                 )}
               />
               <p className="mt-2 text-xs text-gray-500">Password must be at least 6 characters.</p>
+              <div className="mt-1 text-right">
+                <Link href="/forgot-password" className="text-xs text-badger-red hover:underline">
+                  Forgot password?
+                </Link>
+              </div>
             </div>
 
             {error && <p className="text-sm text-red-600">{error}</p>}
