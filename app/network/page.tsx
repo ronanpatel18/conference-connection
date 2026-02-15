@@ -20,7 +20,6 @@ export default function NetworkPage() {
   const [sortOption, setSortOption] = useState<"default" | "name" | "recent">("default");
   const [isAdmin, setIsAdmin] = useState(false);
   const [viewMode, setViewMode] = useState<"admin" | "attendee">("admin");
-
   const loadAttendees = useCallback(async () => {
     try {
       const supabase = createClient();
@@ -308,7 +307,7 @@ export default function NetworkPage() {
           </p>
         </motion.div>
 
-        {/* Attendees Bento Grid */}
+        {/* Attendees Grid */}
         {filteredAttendees.length === 0 ? (
           <div className="text-center py-16">
             <p className="text-gray-600 mb-4">
