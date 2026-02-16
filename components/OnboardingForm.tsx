@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { motion } from "framer-motion";
@@ -24,6 +24,67 @@ export default function OnboardingForm() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
   const [loadingMessage, setLoadingMessage] = useState("");
+  const [linkedinLooking, setLinkedinLooking] = useState(false);
+  const [linkedinAutoFilled, setLinkedinAutoFilled] = useState(false);
+  const linkedinLookupDone = useRef(false);
+
+  // Auto LinkedIn lookup when name + (job_title or company) are filled
+  const lookupLinkedin = useCallback(async (name: string, job_title: string, company: string) => {
+    if (linkedinLookupDone.current) return;
+    if (!name.trim()) return;
+    if (!job_title.trim() && !company.trim()) return;
+
+    linkedinLookupDone.current = true;
+    setLinkedinLooking(true);
+
+    try {
+      const response = await fetch("/api/lookup-linkedin", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: name.trim(),
+          job_title: job_title.trim() || undefined,
+          company: company.trim() || undefined,
+        }),
+      });
+
+      if (!response.ok) return;
+
+      const data = await response.json();
+      if (data.success && data.data?.linkedin_url) {
+        setFormData((prev) => {
+          // Only autofill if user hasn't manually typed a URL
+          if (!prev.linkedin_url) {
+            setLinkedinAutoFilled(true);
+            return { ...prev, linkedin_url: data.data.linkedin_url };
+          }
+          return prev;
+        });
+      }
+    } catch {
+      // Silently fail - LinkedIn lookup is optional
+    } finally {
+      setLinkedinLooking(false);
+    }
+  }, []);
+
+  // Trigger lookup with debounce when relevant fields change
+  const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    if (step !== "full" || linkedinLookupDone.current || formData.linkedin_url) return;
+
+    const { name, job_title, company } = formData;
+    if (!name.trim() || (!job_title.trim() && !company.trim())) return;
+
+    if (debounceTimer.current) clearTimeout(debounceTimer.current);
+    debounceTimer.current = setTimeout(() => {
+      lookupLinkedin(name, job_title, company);
+    }, 800);
+
+    return () => {
+      if (debounceTimer.current) clearTimeout(debounceTimer.current);
+    };
+  }, [step, formData.name, formData.job_title, formData.company, formData.linkedin_url, lookupLinkedin]);
 
   const createAccountSession = async (email: string, password: string) => {
     const supabase = createClient();
@@ -463,19 +524,34 @@ export default function OnboardingForm() {
                     />
                   </div>
                   <div>
-                    <label
-                      htmlFor="linkedin"
-                      className="block text-sm font-medium text-gray-700 mb-2"
-                    >
-                      LinkedIn Profile
-                    </label>
+                    <div className="flex items-center gap-2 mb-2">
+                      <label
+                        htmlFor="linkedin"
+                        className="block text-sm font-medium text-gray-700"
+                      >
+                        LinkedIn Profile
+                      </label>
+                      {linkedinLooking && (
+                        <span className="flex items-center gap-1 text-xs text-gray-500">
+                          <Loader2 className="w-3 h-3 animate-spin" />
+                          Looking up...
+                        </span>
+                      )}
+                      {linkedinAutoFilled && !linkedinLooking && (
+                        <span className="flex items-center gap-1 text-xs text-green-600">
+                          <CheckCircle2 className="w-3 h-3" />
+                          Auto-found
+                        </span>
+                      )}
+                    </div>
                     <input
                       id="linkedin"
                       type="url"
                       value={formData.linkedin_url}
-                      onChange={(e) =>
-                        setFormData({ ...formData, linkedin_url: e.target.value })
-                      }
+                      onChange={(e) => {
+                        setLinkedinAutoFilled(false);
+                        setFormData({ ...formData, linkedin_url: e.target.value });
+                      }}
                       placeholder="https://linkedin.com/in/janedoe"
                       disabled={isLoading}
                       className={cn(
@@ -484,7 +560,8 @@ export default function OnboardingForm() {
                         "text-gray-900 placeholder:text-gray-400",
                         "focus:outline-none focus:ring-2 focus:ring-badger-red focus:border-transparent",
                         "transition-all duration-200",
-                        "disabled:opacity-50 disabled:cursor-not-allowed"
+                        "disabled:opacity-50 disabled:cursor-not-allowed",
+                        linkedinAutoFilled && "border-green-300 bg-green-50/50"
                       )}
                     />
                   </div>

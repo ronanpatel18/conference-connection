@@ -1,5 +1,4 @@
 import { NextRequest } from 'next/server';
-import { createClient as createServerClient } from '@/utils/supabase/server';
 import { rateLimiters } from '@/lib/rate-limit';
 import { validateBody, lookupLinkedinSchema, secureJsonResponse } from '@/lib/validation';
 
@@ -17,22 +16,9 @@ interface TavilyResponse {
 
 export async function POST(request: NextRequest) {
   try {
-    // Rate limiting - lookup operations
+    // Rate limiting - lookup operations (no auth required, used during onboarding)
     const rateLimitResult = await rateLimiters.lookup(request);
     if (rateLimitResult) return rateLimitResult;
-
-    // Authentication check
-    const supabase = await createServerClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-
-    if (!user) {
-      return secureJsonResponse(
-        { success: false, error: 'Unauthorized' },
-        { status: 401 }
-      );
-    }
 
     // Validate and sanitize input
     const [validatedData, validationError] = await validateBody(request, lookupLinkedinSchema);
@@ -47,11 +33,11 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Build a LinkedIn-specific search query
+    // Build a LinkedIn-specific search query: "Name Job Title Company linkedin"
     const searchTerms = [name];
     if (job_title) searchTerms.push(job_title);
     if (company) searchTerms.push(company);
-    searchTerms.push('site:linkedin.com/in');
+    searchTerms.push('linkedin');
 
     const searchQuery = searchTerms.join(' ');
     console.log(`[LinkedIn Lookup] Searching: "${searchQuery}"`);
