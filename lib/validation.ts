@@ -64,8 +64,8 @@ export function sanitizeName(input: unknown): string | null {
   if (typeof input !== "string") return null;
   const sanitized = sanitizeString(input);
   if (sanitized.length === 0 || sanitized.length > MAX_LENGTHS.name) return null;
-  // Name should only contain letters, spaces, hyphens, apostrophes
-  if (!/^[\p{L}\p{M}\s\-'.]+$/u.test(sanitized)) return null;
+  // Name should only contain letters, spaces, hyphens, apostrophes, commas, and common punctuation
+  if (!/^[\p{L}\p{M}\s\-'.,;:&()\/]+$/u.test(sanitized)) return null;
   return sanitized;
 }
 
