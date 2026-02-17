@@ -28,11 +28,11 @@ export default function OnboardingForm() {
   const [linkedinAutoFilled, setLinkedinAutoFilled] = useState(false);
   const linkedinLookupDone = useRef(false);
 
-  // Auto LinkedIn lookup when name + (job_title or company) are filled
+  // Auto LinkedIn lookup when name + job_title + company are all filled
   const lookupLinkedin = useCallback(async (name: string, job_title: string, company: string) => {
     if (linkedinLookupDone.current) return;
     if (!name.trim()) return;
-    if (!job_title.trim() && !company.trim()) return;
+    if (!job_title.trim() || !company.trim()) return;
 
     linkedinLookupDone.current = true;
     setLinkedinLooking(true);
@@ -74,7 +74,7 @@ export default function OnboardingForm() {
     if (step !== "full" || linkedinLookupDone.current || formData.linkedin_url) return;
 
     const { name, job_title, company } = formData;
-    if (!name.trim() || (!job_title.trim() && !company.trim())) return;
+    if (!name.trim() || !job_title.trim() || !company.trim()) return;
 
     if (debounceTimer.current) clearTimeout(debounceTimer.current);
     debounceTimer.current = setTimeout(() => {
@@ -304,7 +304,7 @@ export default function OnboardingForm() {
       setLoadingMessage("Profile created!");
 
       setTimeout(() => {
-        router.push("/network");
+        router.push("/profile?from=onboarding");
       }, 1000);
     } catch (err) {
       console.error("Error:", err);

@@ -38,7 +38,9 @@ export async function POST(request: NextRequest) {
       auth: { persistSession: false, autoRefreshToken: false },
     });
 
-    // Delete attendee profile first
+    // Delete attendee profile — the database trigger
+    // (delete_auth_user_on_attendee_delete) automatically removes
+    // the auth user when the attendee row is deleted.
     const { error: deleteProfileError } = await admin
       .from("attendees")
       .delete()
@@ -48,17 +50,6 @@ export async function POST(request: NextRequest) {
       console.error("[DeleteAccount] Profile delete error:", deleteProfileError.message);
       return secureJsonResponse(
         { success: false, error: "Failed to delete profile" },
-        { status: 500 }
-      );
-    }
-
-    // Delete auth user
-    const { error: deleteUserError } = await admin.auth.admin.deleteUser(user.id);
-
-    if (deleteUserError) {
-      console.error("[DeleteAccount] Auth delete error:", deleteUserError.message);
-      return secureJsonResponse(
-        { success: false, error: "Failed to delete account" },
         { status: 500 }
       );
     }

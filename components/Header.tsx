@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import { motion } from "framer-motion";
 import { Menu, X, User, LogOut, Pencil } from "lucide-react";
 import WsbcLogo from "@/components/WsbcLogo";
@@ -10,6 +10,7 @@ import { createClient } from "@/utils/supabase/client";
 
 export default function Header() {
   const router = useRouter();
+  const pathname = usePathname();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [userName, setUserName] = useState<string | null>(null);
   const [isAuthed, setIsAuthed] = useState(false);
@@ -48,7 +49,7 @@ export default function Header() {
     return () => {
       authListener.subscription.unsubscribe();
     };
-  }, []);
+  }, [pathname]);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {

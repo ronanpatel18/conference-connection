@@ -176,7 +176,11 @@ function ProfileContent() {
         throw new Error(data.error || "Failed to delete profile");
       }
 
-      router.push("/login");
+      // Sign out locally — the auth user is already deleted server-side
+      // by the database trigger, so ignore any sign-out errors
+      const supabase = createClient();
+      await supabase.auth.signOut().catch(() => {});
+      router.push("/");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to delete profile");
       setIsDeleting(false);
