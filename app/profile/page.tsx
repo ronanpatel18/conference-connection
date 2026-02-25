@@ -6,7 +6,10 @@ import { motion } from "framer-motion";
 import { Loader2, Save, ArrowRight } from "lucide-react";
 import { createClient } from "@/utils/supabase/client";
 import { cn } from "@/lib/utils";
+import { CATEGORY_TREE, getThemeForSubcategory } from "@/lib/industry";
 import type { Attendee } from "@/types/database.types";
+
+const ALL_STANDARD_TAGS = CATEGORY_TREE.flatMap((cat) => cat.subcategories);
 
 function ProfileContent() {
   const router = useRouter();
@@ -20,6 +23,8 @@ function ProfileContent() {
   const [success, setSuccess] = useState("");
   const [aiSummaryText, setAiSummaryText] = useState("");
   const [isDeleting, setIsDeleting] = useState(false);
+  const [showOtherInput, setShowOtherInput] = useState(false);
+  const [otherTagInput, setOtherTagInput] = useState("");
 
   useEffect(() => {
     const loadProfile = async () => {
@@ -154,6 +159,27 @@ function ProfileContent() {
     } finally {
       setIsRegenerating(false);
     }
+  };
+
+  const toggleTag = (tag: string) => {
+    const current = attendee?.industry_tags || [];
+    if (current.includes(tag)) {
+      setAttendee({ ...attendee!, industry_tags: current.filter((t) => t !== tag) });
+    } else if (current.length < 3) {
+      setAttendee({ ...attendee!, industry_tags: [...current, tag] });
+    }
+  };
+
+  const addOtherTag = () => {
+    const trimmed = otherTagInput.trim();
+    if (!trimmed) return;
+    const current = attendee?.industry_tags || [];
+    const standardOnly = current.filter((t) => ALL_STANDARD_TAGS.includes(t));
+    if (standardOnly.length < 3) {
+      setAttendee({ ...attendee!, industry_tags: [...standardOnly, trimmed] });
+    }
+    setOtherTagInput("");
+    setShowOtherInput(false);
   };
 
   const handleDeleteProfile = async () => {
@@ -375,27 +401,121 @@ function ProfileContent() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Industry Tags (comma separated)</label>
-              <input
-                type="text"
-                value={attendee.industry_tags?.join(", ") ?? ""}
-                onChange={(e) =>
-                  setAttendee({
-                    ...attendee,
-                    industry_tags: e.target.value
-                      .split(",")
-                      .map((tag) => tag.trim())
-                      .filter(Boolean),
-                  })
-                }
-                className={cn(
-                  "w-full px-4 py-3 rounded-xl",
-                  "bg-gray-50 border border-gray-300",
-                  "text-gray-900 placeholder:text-gray-400",
-                  "focus:outline-none focus:ring-2 focus:ring-badger-red focus:border-transparent",
-                  "transition-all duration-200"
-                )}
-              />
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Industry Tags{" "}
+                <span className="text-xs text-gray-500 font-normal">(max 3)</span>
+              </label>
+
+              {/* Selected tags */}
+              {(attendee.industry_tags || []).length > 0 && (
+                <div className="flex flex-wrap gap-2 mb-3">
+                  {(attendee.industry_tags || []).map((tag, i) => {
+                    const tagTheme = getThemeForSubcategory(tag);
+                    return (
+                      <span
+                        key={`selected-${tag}-${i}`}
+                        className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold"
+                        style={
+                          tagTheme
+                            ? { backgroundColor: tagTheme.tint, color: tagTheme.main }
+                            : { backgroundColor: "#E5E7EB", color: "#374151" }
+                        }
+                      >
+                        {tag}
+                        <button
+                          type="button"
+                          onClick={() => toggleTag(tag)}
+                          className="leading-none hover:opacity-70 transition-opacity"
+                          aria-label={`Remove ${tag}`}
+                        >
+                          ×
+                        </button>
+                      </span>
+                    );
+                  })}
+                </div>
+              )}
+
+              {/* Tag bank */}
+              <div className="flex flex-wrap gap-2 p-4 bg-gray-50 rounded-xl border border-gray-200">
+                {CATEGORY_TREE.flatMap((cat) => cat.subcategories).map((tag) => {
+                  const isSelected = (attendee.industry_tags || []).includes(tag);
+                  const isFull = (attendee.industry_tags || []).length >= 3;
+                  return (
+                    <button
+                      key={tag}
+                      type="button"
+                      onClick={() => toggleTag(tag)}
+                      disabled={!isSelected && isFull}
+                      className={cn(
+                        "px-3 py-1 rounded-full text-xs font-semibold transition-all duration-150",
+                        isSelected
+                          ? "bg-gray-200 text-gray-400 hover:bg-gray-300 cursor-pointer"
+                          : isFull
+                          ? "bg-gray-100 text-gray-300 cursor-not-allowed"
+                          : "bg-white border border-gray-300 text-gray-700 hover:border-badger-red hover:text-badger-red cursor-pointer"
+                      )}
+                    >
+                      {tag}
+                    </button>
+                  );
+                })}
+
+                {/* Other option */}
+                {showOtherInput ? (
+                  <div className="flex items-center gap-1.5">
+                    <input
+                      type="text"
+                      value={otherTagInput}
+                      onChange={(e) => setOtherTagInput(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") { e.preventDefault(); addOtherTag(); }
+                        if (e.key === "Escape") { setShowOtherInput(false); setOtherTagInput(""); }
+                      }}
+                      placeholder="Type tag…"
+                      autoFocus
+                      className="px-2 py-1 text-xs border border-gray-300 rounded-full focus:outline-none focus:ring-1 focus:ring-badger-red w-24"
+                    />
+                    <button
+                      type="button"
+                      onClick={addOtherTag}
+                      className="px-3 py-1 rounded-full text-xs font-semibold bg-badger-red text-white hover:bg-badger-darkred transition-colors"
+                    >
+                      Add
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => { setShowOtherInput(false); setOtherTagInput(""); }}
+                      className="px-3 py-1 rounded-full text-xs font-semibold bg-gray-200 text-gray-600 hover:bg-gray-300 transition-colors"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                ) : (() => {
+                  const hasCustomTag = (attendee.industry_tags || []).some(
+                    (t) => !ALL_STANDARD_TAGS.includes(t)
+                  );
+                  const isFull = (attendee.industry_tags || []).length >= 3;
+                  return (
+                    <button
+                      type="button"
+                      onClick={() => !hasCustomTag && !isFull && setShowOtherInput(true)}
+                      disabled={hasCustomTag || isFull}
+                      className={cn(
+                        "px-3 py-1 rounded-full text-xs font-semibold border transition-all duration-150",
+                        hasCustomTag || isFull
+                          ? "bg-gray-200 text-gray-400 cursor-not-allowed border-transparent"
+                          : "bg-white border-dashed border-gray-400 text-gray-600 hover:border-badger-red hover:text-badger-red cursor-pointer"
+                      )}
+                    >
+                      + Other
+                    </button>
+                  );
+                })()}
+              </div>
+              <p className="mt-2 text-xs text-gray-500">
+                Click a tag to add it. Click a grayed tag to remove it.
+              </p>
             </div>
 
             {error && <p className="text-sm text-red-600">{error}</p>}

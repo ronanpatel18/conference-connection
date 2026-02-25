@@ -5,7 +5,10 @@ import { useRouter } from "next/navigation";
 import { ChevronDown, ChevronUp, Loader2, RefreshCcw, Save, Pin, PinOff, ArrowUp, ArrowDown, Linkedin } from "lucide-react";
 import { AlignJustify, Search, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { CATEGORY_TREE, getThemeForSubcategory } from "@/lib/industry";
 import type { Attendee } from "@/types/database.types";
+
+const ALL_STANDARD_TAGS = CATEGORY_TREE.flatMap((cat) => cat.subcategories);
 
 export default function AdminPage() {
   const router = useRouter();
@@ -27,7 +30,7 @@ export default function AdminPage() {
     company: "",
     linkedin_url: "",
     about: "",
-    industry_tags: "",
+    industry_tags: [] as string[],
   });
   const [searchTerm, setSearchTerm] = useState("");
   const [isMultiSelect, setIsMultiSelect] = useState(false);
@@ -36,6 +39,10 @@ export default function AdminPage() {
   const [orderChanged, setOrderChanged] = useState(false);
   const [isLookingUpLinkedIn, setIsLookingUpLinkedIn] = useState(false);
   const [isLookingUpNewLinkedIn, setIsLookingUpNewLinkedIn] = useState(false);
+  const [showOtherInput, setShowOtherInput] = useState(false);
+  const [otherTagInput, setOtherTagInput] = useState("");
+  const [showNewOtherInput, setShowNewOtherInput] = useState(false);
+  const [newOtherTagInput, setNewOtherTagInput] = useState("");
 
   useEffect(() => {
     const load = async () => {
@@ -83,6 +90,8 @@ export default function AdminPage() {
       .filter(Boolean)
       .map((line: string) => (line.startsWith("•") ? line : `• ${line}`));
     setAiSummaryText(bullets.join("\n"));
+    setShowOtherInput(false);
+    setOtherTagInput("");
   }, [selected]);
 
   const updateSelected = (patch: Partial<Attendee>) => {
@@ -255,10 +264,7 @@ export default function AdminPage() {
           company: newAttendee.company.trim() || null,
           linkedin_url: newAttendee.linkedin_url.trim() || null,
           about: newAttendee.about.trim() || null,
-          industry_tags: newAttendee.industry_tags
-            .split(",")
-            .map((tag) => tag.trim())
-            .filter(Boolean),
+          industry_tags: newAttendee.industry_tags,
         }),
       });
 
@@ -276,14 +282,58 @@ export default function AdminPage() {
         company: "",
         linkedin_url: "",
         about: "",
-        industry_tags: "",
+        industry_tags: [],
       });
+      setShowNewOtherInput(false);
+      setNewOtherTagInput("");
       setSuccess("Profile created.");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to create attendee");
     } finally {
       setIsCreating(false);
     }
+  };
+
+  const toggleTag = (tag: string) => {
+    const current = selected?.industry_tags || [];
+    if (current.includes(tag)) {
+      updateSelected({ industry_tags: current.filter((t) => t !== tag) });
+    } else if (current.length < 3) {
+      updateSelected({ industry_tags: [...current, tag] });
+    }
+  };
+
+  const addOtherTag = () => {
+    const trimmed = otherTagInput.trim();
+    if (!trimmed) return;
+    const current = selected?.industry_tags || [];
+    const standardOnly = current.filter((t) => ALL_STANDARD_TAGS.includes(t));
+    if (standardOnly.length < 3) {
+      updateSelected({ industry_tags: [...standardOnly, trimmed] });
+    }
+    setOtherTagInput("");
+    setShowOtherInput(false);
+  };
+
+  const toggleNewTag = (tag: string) => {
+    const current = newAttendee.industry_tags;
+    if (current.includes(tag)) {
+      setNewAttendee({ ...newAttendee, industry_tags: current.filter((t) => t !== tag) });
+    } else if (current.length < 3) {
+      setNewAttendee({ ...newAttendee, industry_tags: [...current, tag] });
+    }
+  };
+
+  const addNewOtherTag = () => {
+    const trimmed = newOtherTagInput.trim();
+    if (!trimmed) return;
+    const current = newAttendee.industry_tags;
+    const standardOnly = current.filter((t) => ALL_STANDARD_TAGS.includes(t));
+    if (standardOnly.length < 3) {
+      setNewAttendee({ ...newAttendee, industry_tags: [...standardOnly, trimmed] });
+    }
+    setNewOtherTagInput("");
+    setShowNewOtherInput(false);
   };
 
   const handleDelete = async () => {
@@ -658,19 +708,119 @@ export default function AdminPage() {
                       "resize-none"
                     )}
                   />
-                  <input
-                    value={newAttendee.industry_tags}
-                    onChange={(e) =>
-                      setNewAttendee({ ...newAttendee, industry_tags: e.target.value })}
-                    placeholder="Industry tags (comma separated)"
-                    className={cn(
-                      "w-full px-3 py-2 rounded-xl",
-                      "bg-gray-50 border border-gray-300",
-                      "text-gray-900 placeholder:text-gray-400",
-                      "focus:outline-none focus:ring-2 focus:ring-badger-red focus:border-transparent",
-                      "transition-all duration-200"
+                  <div>
+                    <p className="text-xs text-gray-500 mb-1.5">
+                      Industry Tags <span className="text-gray-400">(max 3)</span>
+                    </p>
+
+                    {/* Selected tags */}
+                    {newAttendee.industry_tags.length > 0 && (
+                      <div className="flex flex-wrap gap-1.5 mb-2">
+                        {newAttendee.industry_tags.map((tag, i) => {
+                          const tagTheme = getThemeForSubcategory(tag);
+                          return (
+                            <span
+                              key={`new-sel-${tag}-${i}`}
+                              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold"
+                              style={
+                                tagTheme
+                                  ? { backgroundColor: tagTheme.tint, color: tagTheme.main }
+                                  : { backgroundColor: "#E5E7EB", color: "#374151" }
+                              }
+                            >
+                              {tag}
+                              <button
+                                type="button"
+                                onClick={() => toggleNewTag(tag)}
+                                className="leading-none hover:opacity-70 transition-opacity"
+                                aria-label={`Remove ${tag}`}
+                              >
+                                ×
+                              </button>
+                            </span>
+                          );
+                        })}
+                      </div>
                     )}
-                  />
+
+                    {/* Tag bank */}
+                    <div className="flex flex-wrap gap-1.5 p-2.5 bg-gray-50 rounded-xl border border-gray-200">
+                      {CATEGORY_TREE.flatMap((cat) => cat.subcategories).map((tag) => {
+                        const isSelected = newAttendee.industry_tags.includes(tag);
+                        const isFull = newAttendee.industry_tags.length >= 3;
+                        return (
+                          <button
+                            key={tag}
+                            type="button"
+                            onClick={() => toggleNewTag(tag)}
+                            disabled={!isSelected && isFull}
+                            className={cn(
+                              "px-2 py-0.5 rounded-full text-xs font-semibold transition-all duration-150",
+                              isSelected
+                                ? "bg-gray-200 text-gray-400 hover:bg-gray-300 cursor-pointer"
+                                : isFull
+                                ? "bg-gray-100 text-gray-300 cursor-not-allowed"
+                                : "bg-white border border-gray-300 text-gray-700 hover:border-badger-red hover:text-badger-red cursor-pointer"
+                            )}
+                          >
+                            {tag}
+                          </button>
+                        );
+                      })}
+
+                      {/* Other option */}
+                      {showNewOtherInput ? (
+                        <div className="flex items-center gap-1 flex-wrap">
+                          <input
+                            type="text"
+                            value={newOtherTagInput}
+                            onChange={(e) => setNewOtherTagInput(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") { e.preventDefault(); addNewOtherTag(); }
+                              if (e.key === "Escape") { setShowNewOtherInput(false); setNewOtherTagInput(""); }
+                            }}
+                            placeholder="Type tag…"
+                            autoFocus
+                            className="px-2 py-0.5 text-xs border border-gray-300 rounded-full focus:outline-none focus:ring-1 focus:ring-badger-red w-20"
+                          />
+                          <button
+                            type="button"
+                            onClick={addNewOtherTag}
+                            className="px-2 py-0.5 rounded-full text-xs font-semibold bg-badger-red text-white hover:bg-badger-darkred transition-colors"
+                          >
+                            Add
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => { setShowNewOtherInput(false); setNewOtherTagInput(""); }}
+                            className="px-2 py-0.5 rounded-full text-xs font-semibold bg-gray-200 text-gray-600 hover:bg-gray-300 transition-colors"
+                          >
+                            ×
+                          </button>
+                        </div>
+                      ) : (() => {
+                        const hasCustomTag = newAttendee.industry_tags.some(
+                          (t) => !ALL_STANDARD_TAGS.includes(t)
+                        );
+                        const isFull = newAttendee.industry_tags.length >= 3;
+                        return (
+                          <button
+                            type="button"
+                            onClick={() => !hasCustomTag && !isFull && setShowNewOtherInput(true)}
+                            disabled={hasCustomTag || isFull}
+                            className={cn(
+                              "px-2 py-0.5 rounded-full text-xs font-semibold border transition-all duration-150",
+                              hasCustomTag || isFull
+                                ? "bg-gray-200 text-gray-400 cursor-not-allowed border-transparent"
+                                : "bg-white border-dashed border-gray-400 text-gray-600 hover:border-badger-red hover:text-badger-red cursor-pointer"
+                            )}
+                          >
+                            + Other
+                          </button>
+                        );
+                      })()}
+                    </div>
+                  </div>
                   <button
                     type="submit"
                     disabled={isCreating}
@@ -957,25 +1107,121 @@ export default function AdminPage() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Industry Tags</label>
-                  <input
-                    value={selected.industry_tags?.join(", ") ?? ""}
-                    onChange={(e) =>
-                      updateSelected({
-                        industry_tags: e.target.value
-                          .split(",")
-                          .map((tag) => tag.trim())
-                          .filter(Boolean),
-                      })
-                    }
-                    className={cn(
-                      "w-full px-4 py-3 rounded-xl",
-                      "bg-gray-50 border border-gray-300",
-                      "text-gray-900 placeholder:text-gray-400",
-                      "focus:outline-none focus:ring-2 focus:ring-badger-red focus:border-transparent",
-                      "transition-all duration-200"
-                    )}
-                  />
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Industry Tags{" "}
+                    <span className="text-xs text-gray-500 font-normal">(max 3)</span>
+                  </label>
+
+                  {/* Selected tags */}
+                  {(selected.industry_tags || []).length > 0 && (
+                    <div className="flex flex-wrap gap-2 mb-3">
+                      {(selected.industry_tags || []).map((tag, i) => {
+                        const tagTheme = getThemeForSubcategory(tag);
+                        return (
+                          <span
+                            key={`sel-${tag}-${i}`}
+                            className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold"
+                            style={
+                              tagTheme
+                                ? { backgroundColor: tagTheme.tint, color: tagTheme.main }
+                                : { backgroundColor: "#E5E7EB", color: "#374151" }
+                            }
+                          >
+                            {tag}
+                            <button
+                              type="button"
+                              onClick={() => toggleTag(tag)}
+                              className="leading-none hover:opacity-70 transition-opacity"
+                              aria-label={`Remove ${tag}`}
+                            >
+                              ×
+                            </button>
+                          </span>
+                        );
+                      })}
+                    </div>
+                  )}
+
+                  {/* Tag bank */}
+                  <div className="flex flex-wrap gap-2 p-3 bg-gray-50 rounded-xl border border-gray-200">
+                    {CATEGORY_TREE.flatMap((cat) => cat.subcategories).map((tag) => {
+                      const isSelected = (selected.industry_tags || []).includes(tag);
+                      const isFull = (selected.industry_tags || []).length >= 3;
+                      return (
+                        <button
+                          key={tag}
+                          type="button"
+                          onClick={() => toggleTag(tag)}
+                          disabled={!isSelected && isFull}
+                          className={cn(
+                            "px-3 py-1 rounded-full text-xs font-semibold transition-all duration-150",
+                            isSelected
+                              ? "bg-gray-200 text-gray-400 hover:bg-gray-300 cursor-pointer"
+                              : isFull
+                              ? "bg-gray-100 text-gray-300 cursor-not-allowed"
+                              : "bg-white border border-gray-300 text-gray-700 hover:border-badger-red hover:text-badger-red cursor-pointer"
+                          )}
+                        >
+                          {tag}
+                        </button>
+                      );
+                    })}
+
+                    {/* Other option */}
+                    {showOtherInput ? (
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <input
+                          type="text"
+                          value={otherTagInput}
+                          onChange={(e) => setOtherTagInput(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") { e.preventDefault(); addOtherTag(); }
+                            if (e.key === "Escape") { setShowOtherInput(false); setOtherTagInput(""); }
+                          }}
+                          placeholder="Type tag…"
+                          autoFocus
+                          className="px-2 py-1 text-xs border border-gray-300 rounded-full focus:outline-none focus:ring-1 focus:ring-badger-red w-24"
+                        />
+                        <button
+                          type="button"
+                          onClick={addOtherTag}
+                          className="px-3 py-1 rounded-full text-xs font-semibold bg-badger-red text-white hover:bg-badger-darkred transition-colors"
+                        >
+                          Add
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => { setShowOtherInput(false); setOtherTagInput(""); }}
+                          className="px-3 py-1 rounded-full text-xs font-semibold bg-gray-200 text-gray-600 hover:bg-gray-300 transition-colors"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    ) : (() => {
+                      const hasCustomTag = (selected.industry_tags || []).some(
+                        (t) => !ALL_STANDARD_TAGS.includes(t)
+                      );
+                      const isFull = (selected.industry_tags || []).length >= 3;
+                      return (
+                        <button
+                          type="button"
+                          onClick={() => !hasCustomTag && !isFull && setShowOtherInput(true)}
+                          disabled={hasCustomTag || isFull}
+                          className={cn(
+                            "px-3 py-1 rounded-full text-xs font-semibold border transition-all duration-150",
+                            hasCustomTag || isFull
+                              ? "bg-gray-200 text-gray-400 cursor-not-allowed border-transparent"
+                              : "bg-white border-dashed border-gray-400 text-gray-600 hover:border-badger-red hover:text-badger-red cursor-pointer"
+                          )}
+                        >
+                          + Other
+                        </button>
+                      );
+                    })()}
+                  </div>
+                  <p className="mt-1.5 text-xs text-gray-500">
+                    Click a tag to add it. Click a grayed tag to remove it.
+                  </p>
                 </div>
 
                 {error && <p className="text-sm text-red-600">{error}</p>}

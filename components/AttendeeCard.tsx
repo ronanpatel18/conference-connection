@@ -8,8 +8,9 @@ import { cn } from "@/lib/utils";
 import {
   getThemeForAttendee,
   getThemeForSubcategory,
-  isValidSubcategory,
 } from "@/lib/industry";
+
+const CUSTOM_TAG_THEME = { name: "Other", main: "#be185d", tint: "#fce7f3" };
 
 interface AttendeeCardProps {
   attendee: NetworkAttendee;
@@ -103,7 +104,6 @@ export default function AttendeeCard({ attendee, index }: AttendeeCardProps) {
 
   const displayTags = (attendee.industry_tags || [])
     .filter((tag): tag is string => typeof tag === "string" && tag.trim().length > 0)
-    .filter((tag) => isValidSubcategory(tag))
     .slice(0, 3);
 
   return (
@@ -205,7 +205,7 @@ export default function AttendeeCard({ attendee, index }: AttendeeCardProps) {
             {displayTags.length > 0 && (
               <div className="flex flex-wrap gap-2 mb-4">
                 {displayTags.map((tag, i) => {
-                  const tagTheme = getThemeForSubcategory(tag) || theme;
+                  const tagTheme = getThemeForSubcategory(tag) || CUSTOM_TAG_THEME;
                   return (
                     <span
                       key={`${tag}-${i}`}
@@ -282,7 +282,7 @@ export default function AttendeeCard({ attendee, index }: AttendeeCardProps) {
                 </p>
                 <div className="flex flex-wrap gap-2">
                   {displayTags.map((tag, i) => {
-                    const tagTheme = getThemeForSubcategory(tag) || theme;
+                    const tagTheme = getThemeForSubcategory(tag) || CUSTOM_TAG_THEME;
                     return (
                       <span
                         key={`${tag}-back-${i}`}
