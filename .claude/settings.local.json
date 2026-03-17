@@ -4,7 +4,11 @@
       "Bash(move:*)",
       "Bash(copy \"c:\\\\Users\\\\patel\\\\Downloads\\\\conference-connection\\\\app\\\\icon.webp\" \"c:\\\\Users\\\\patel\\\\Downloads\\\\conference-connection\\\\public\\\\icon.webp\")",
       "Bash(npm run build:*)",
-      "Bash(npm install:*)"
+      "Bash(npm install:*)",
+      "Bash(\"/c/Program Files/Google/Chrome/Application/chrome.exe\" --headless --disable-gpu --print-to-pdf=\"c:/Users/patel/Downloads/conference-connection/Conference_Connection_Project_Summary.pdf\" --no-margins \"file:///c:/Users/patel/Downloads/conference-connection/project-summary.html\")",
+      "Bash(npx puppeteer browsers install chrome)",
+      "Bash(node generate-pdf.mjs)",
+      "Bash(npm uninstall puppeteer --save-dev --prefix \"c:/Users/patel/Downloads/conference-connection\")"
     ]
   }
 }
