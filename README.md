@@ -49,40 +49,6 @@ Rate Limiting → Upstash Redis (prod) / In-memory (dev)
 - **Mobile-First UX** — Touch detection distinguishing taps from scrolls for card interactions; responsive grid layouts
 - **10+ RESTful API Routes** — Clean separation of concerns with auth, validation, and error handling per endpoint
 
-## Getting Started
-
-### Prerequisites
-
-- Node.js 18+
-- Supabase project
-- Google Gemini API key
-
-### Environment Variables
-
-Create a `.env.local` file:
-
-```env
-NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
-NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
-DEFAULT_GEMINI_API_KEY=your_gemini_api_key
-
-# Optional
-TAVILY_API_KEY=your_tavily_key
-SUPABASE_SERVICE_ROLE_KEY=your_service_role_key
-ADMIN_ALLOWLIST_EMAILS=admin@example.com
-```
-
-### Installation
-
-```bash
-npm install
-npm run dev
-```
-
-Open [http://localhost:3000](http://localhost:3000) to view the app.
-
-## Scripts
-
 ```bash
 npm run dev      # Start dev server
 npm run build    # Production build
